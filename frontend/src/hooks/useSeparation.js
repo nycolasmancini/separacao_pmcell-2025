@@ -440,6 +440,40 @@ export function useSeparation(orderId) {
         }
         break;
 
+      case 'item_not_sent':
+        if (data.order_id === parseInt(orderId)) {
+          setItems(prevItems => {
+            const updatedItems = prevItems.map(item => 
+              item.id === data.item_id 
+                ? { ...item, not_sent: true }
+                : item
+            );
+            // Reordenar conforme prioridade: pendentes > não enviados > compras > separados
+            return updatedItems.sort((a, b) => {
+              const getPriority = (item) => {
+                if (item.separated) return 4; // Separados por último
+                if (item.sent_to_purchase) return 3; // Compras acima dos separados
+                if (item.not_sent) return 2; // Não enviados acima das compras
+                return 1; // Pendentes primeiro
+              };
+              
+              const priorityA = getPriority(a);
+              const priorityB = getPriority(b);
+              
+              if (priorityA !== priorityB) {
+                return priorityA - priorityB;
+              }
+              
+              return a.product_name.localeCompare(b.product_name, 'pt-BR', { sensitivity: 'base' });
+            });
+          });
+          setOrder(prevOrder => prevOrder ? {
+            ...prevOrder,
+            progress_percentage: data.progress_percentage || prevOrder.progress_percentage
+          } : null);
+        }
+        break;
+
       case 'order_updated':
         if (data.order_id === parseInt(orderId)) {
           setOrder(prevOrder => prevOrder ? {
@@ -505,6 +539,67 @@ export function useSeparation(orderId) {
     return cleanup;
   }, [cleanup]);
 
+  // Função para completar pedido manualmente
+  const completeOrder = useCallback(async () => {
+    if (!order) return;
+
+    try {
+      setUpdating(true);
+      console.log('🏁 useSeparation - Completando pedido:', { orderId: order.id });
+
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('Token de autenticação não encontrado');
+      }
+
+      const response = await fetch(`/api/v1/orders/${order.id}/complete`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.detail || errorData.message || 'Erro desconhecido';
+        
+        if (response.status === 404) {
+          throw new Error('Pedido não encontrado');
+        } else if (response.status === 400) {
+          throw new Error(errorMessage);
+        } else if (response.status === 403) {
+          throw new Error('Sem permissão para completar pedidos');
+        } else if (response.status === 401) {
+          throw new Error('Acesso negado - faça login novamente');
+        } else {
+          throw new Error(`Erro ao completar pedido (${response.status}): ${errorMessage}`);
+        }
+      }
+
+      const result = await response.json();
+      console.log('✅ useSeparation - Pedido completado com sucesso:', result);
+
+      // Atualizar estado local
+      setOrder(prevOrder => ({
+        ...prevOrder,
+        status: 'completed',
+        progress_percentage: 100,
+        completed_at: result.completed_at
+      }));
+
+      showSuccess('🎉 Pedido concluído com sucesso!');
+      
+      return result;
+    } catch (err) {
+      console.error('❌ useSeparation - Erro ao completar pedido:', err);
+      showError(err.message || 'Erro ao completar pedido');
+      throw err;
+    } finally {
+      setUpdating(false);
+    }
+  }, [order, showSuccess, showError]);
+
   return {
     order,
     items,
@@ -513,6 +608,7 @@ export function useSeparation(orderId) {
     updating,
     wsConnected,
     updateItem,
+    completeOrder,
     refetch: fetchOrderDetails
   };
 }

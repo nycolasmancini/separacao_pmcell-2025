@@ -88,15 +88,27 @@ export default function SeparationItemRow({ item, index, onUpdate, disabled = fa
     }).format(new Date(dateString));
   };
 
-  // Background color based on item state
-  const getBackgroundColor = () => {
-    if (item.sent_to_purchase) return 'bg-blue-50'; // Light blue for purchase items
-    if (item.separated) return 'bg-green-50'; // Light green for separated items
-    if (item.not_sent) return 'bg-red-50'; // Light red for not sent items
-    return index % 2 === 0 ? 'bg-white' : 'bg-gray-50'; // Default zebra striping for pending
+  // Background color and styling based on item state
+  const getItemStyling = () => {
+    if (item.sent_to_purchase) return {
+      bg: 'bg-blue-50',
+      textColor: ''
+    };
+    if (item.separated) return {
+      bg: 'bg-green-50',
+      textColor: ''
+    };
+    if (item.not_sent) return {
+      bg: 'bg-red-50 border-l-4 border-red-500',
+      textColor: 'text-red-700'
+    };
+    return {
+      bg: index % 2 === 0 ? 'bg-white' : 'bg-gray-50',
+      textColor: ''
+    };
   };
   
-  const bgColor = getBackgroundColor();
+  const itemStyling = getItemStyling();
   
   // Estado visual do item
   const getItemStatus = () => {
@@ -119,9 +131,9 @@ export default function SeparationItemRow({ item, index, onUpdate, disabled = fa
     if (item.not_sent) {
       return {
         badge: 'Não Enviado',
-        badgeColor: 'bg-red-100 text-red-800',
+        badgeColor: 'bg-red-600 text-white border border-red-700',
         icon: <XCircleIcon className="h-4 w-4" />,
-        iconColor: 'text-red-500'
+        iconColor: 'text-red-600'
       };
     }
     return {
@@ -136,7 +148,7 @@ export default function SeparationItemRow({ item, index, onUpdate, disabled = fa
 
   return (
     <div 
-      className={`${bgColor} px-6 py-4 hover:bg-orange-50 transition-colors relative`}
+      className={`${itemStyling.bg} px-6 py-4 hover:bg-orange-50 transition-colors relative`}
       onMouseLeave={() => setShowMenu(false)}
     >
       <div className="flex items-center space-x-4">
@@ -150,7 +162,7 @@ export default function SeparationItemRow({ item, index, onUpdate, disabled = fa
               ${item.separated 
                 ? 'bg-green-500 border-green-500 text-white' 
                 : item.not_sent 
-                ? 'bg-red-500 border-red-500 text-white'
+                ? 'bg-red-600 border-red-600 text-white'
                 : 'border-gray-300 hover:border-orange-400'
               }
               ${(disabled || isUpdating || item.sent_to_purchase || item.not_sent) 
@@ -162,16 +174,14 @@ export default function SeparationItemRow({ item, index, onUpdate, disabled = fa
               item.sent_to_purchase 
                 ? 'Item em compras' 
                 : item.not_sent 
-                ? 'Item marcado como não enviado' 
+                ? 'Item enviado (não enviado = enviado para fins de contagem)' 
                 : (item.separated ? 'Desmarcar como separado' : 'Marcar como separado')
             }
           >
             {isUpdating ? (
               <div className="animate-spin rounded-full h-3 w-3 border border-current border-t-transparent"></div>
-            ) : item.separated ? (
+            ) : (item.separated || item.not_sent) ? (
               <CheckCircleIcon className="h-4 w-4" />
-            ) : item.not_sent ? (
-              <XCircleIcon className="h-4 w-4" />
             ) : null}
           </button>
         </div>
@@ -180,36 +190,36 @@ export default function SeparationItemRow({ item, index, onUpdate, disabled = fa
         <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-6 gap-4">
           {/* Código */}
           <div className="md:col-span-1">
-            <p className="text-sm font-medium text-gray-900 truncate" title={item.product_code}>
+            <p className={`text-sm font-medium truncate ${itemStyling.textColor || 'text-gray-900'}`} title={item.product_code}>
               {item.product_code}
             </p>
-            <p className="text-xs text-gray-500 truncate">{item.product_reference}</p>
+            <p className={`text-xs truncate ${itemStyling.textColor ? 'text-red-500' : 'text-gray-500'}`}>{item.product_reference}</p>
           </div>
 
           {/* Nome do produto */}
           <div className="md:col-span-2">
-            <p className="text-sm font-medium text-gray-900" title={item.product_name}>
+            <p className={`text-sm font-medium ${itemStyling.textColor || 'text-gray-900'}`} title={item.product_name}>
               {item.product_name}
             </p>
           </div>
 
           {/* Quantidade */}
           <div className="md:col-span-1">
-            <p className="text-sm text-gray-900">
+            <p className={`text-sm ${itemStyling.textColor || 'text-gray-900'}`}>
               <span className="font-medium">{item.quantity}</span>
-              <span className="text-gray-500 ml-1">UN</span>
+              <span className={`ml-1 ${itemStyling.textColor ? 'text-red-500' : 'text-gray-500'}`}>UN</span>
             </p>
           </div>
 
           {/* Preços */}
           <div className="md:col-span-1">
-            <p className="text-sm text-gray-900">{formatCurrency(item.unit_price)}</p>
-            <p className="text-xs text-gray-500">Unitário</p>
+            <p className={`text-sm ${itemStyling.textColor || 'text-gray-900'}`}>{formatCurrency(item.unit_price)}</p>
+            <p className={`text-xs ${itemStyling.textColor ? 'text-red-500' : 'text-gray-500'}`}>Unitário</p>
           </div>
 
           <div className="md:col-span-1">
-            <p className="text-sm font-medium text-gray-900">{formatCurrency(item.total_price)}</p>
-            <p className="text-xs text-gray-500">Total</p>
+            <p className={`text-sm font-medium ${itemStyling.textColor || 'text-gray-900'}`}>{formatCurrency(item.total_price)}</p>
+            <p className={`text-xs ${itemStyling.textColor ? 'text-red-500' : 'text-gray-500'}`}>Total</p>
           </div>
         </div>
 

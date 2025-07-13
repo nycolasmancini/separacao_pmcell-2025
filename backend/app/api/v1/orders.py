@@ -35,6 +35,7 @@ from app.schemas.orders import (
 from app.api.v1.websocket import (
     notify_item_separated,
     notify_item_sent_to_purchase,
+    notify_item_not_sent,
     notify_order_completed,
     notify_new_order,
     notify_order_updated
@@ -468,8 +469,8 @@ async def get_order_detail(
         
         # Calculate progress based on fetched items instead of using the property
         # that causes lazy loading in async context
-        # Only separated items count for progress (not purchase items)
-        processed_items = sum(1 for item in items if item.is_separated)
+        # Separated items AND not_sent items count for progress (not purchase items)
+        processed_items = sum(1 for item in items if item.is_separated or item.not_sent)
         progress_percentage = (processed_items / len(items)) * 100 if items else 0.0
         
         return OrderDetailResponse(
@@ -598,6 +599,10 @@ async def update_order_items(
                     item.not_sent_at = datetime.utcnow()
                     item.not_sent_by_id = current_user.id
                     logger.info(f"Item {update.item_id} marked as not sent by user {current_user.id}")
+                    
+                    # Notificar via WebSocket imediatamente após mudança
+                    # Progresso será recalculado depois
+                    await notify_item_not_sent(order_id, update.item_id, 0.0)  # Progress will be updated later
                 else:
                     # Reverter não enviado
                     item.not_sent = False
@@ -721,6 +726,81 @@ async def send_item_to_purchase(
         raise HTTPException(
             status_code=500,
             detail="Erro interno ao enviar item para compras"
+        )
+
+
+@router.post("/{order_id}/complete")
+async def complete_order(
+    order_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Marca pedido como concluído manualmente.
+    
+    Args:
+        order_id: ID do pedido
+        session: Sessão do banco de dados
+        current_user: Usuário autenticado
+        
+    Returns:
+        JSON response com status
+    """
+    try:
+        # Verificar se o pedido existe
+        order_repo = OrderRepository(session)
+        order = await order_repo.get_with_items(order_id)
+        
+        if not order:
+            raise HTTPException(status_code=404, detail="Pedido não encontrado")
+        
+        # Verificar se já está completo
+        if order.is_complete:
+            raise HTTPException(
+                status_code=400,
+                detail="Pedido já está marcado como concluído"
+            )
+        
+        # Verificar permissões - apenas admins e separadores podem completar pedidos
+        if current_user.role not in ["admin", "separator"]:
+            raise HTTPException(
+                status_code=403,
+                detail="Sem permissão para completar pedidos"
+            )
+        
+        # Marcar como concluído
+        from app.models.order import OrderStatus
+        order.status = OrderStatus.COMPLETED
+        order.completed_at = datetime.utcnow()
+        
+        # Recalcular progresso para atualizar contadores
+        await order_repo.update_progress(order_id)
+        await session.commit()
+        
+        logger.info(f"Order {order_id} completed manually by user {current_user.id}")
+        
+        # Notificar via WebSocket
+        await notify_order_completed(order_id)
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "message": "Pedido marcado como concluído com sucesso",
+                "order_id": order_id,
+                "completed_at": order.completed_at.isoformat(),
+                "completed_by": current_user.name
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error completing order {order_id} by user {current_user.id}: {str(e)}")
+        await session.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Erro interno ao completar pedido"
         )
 
 

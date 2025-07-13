@@ -216,6 +216,26 @@ async def notify_item_sent_to_purchase(order_id: int, item_id: int):
     await connection_manager.broadcast_to_order(order_id, message)
 
 
+async def notify_item_not_sent(order_id: int, item_id: int, progress_percentage: float):
+    """
+    Notifica que um item foi marcado como não enviado.
+    
+    Args:
+        order_id: ID do pedido
+        item_id: ID do item
+        progress_percentage: Nova porcentagem de progresso
+    """
+    message = WebSocketMessage(
+        type="item_not_sent",
+        data={
+            "order_id": order_id,
+            "item_id": item_id,
+            "progress_percentage": progress_percentage
+        }
+    )
+    await connection_manager.broadcast_to_order(order_id, message)
+
+
 async def notify_order_completed(order_id: int):
     """
     Notifica que um pedido foi completado.

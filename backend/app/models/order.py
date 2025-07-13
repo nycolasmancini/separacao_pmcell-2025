@@ -70,7 +70,7 @@ class Order(Base):
     def progress_percentage(self) -> float:
         """
         Calcula a porcentagem de progresso do pedido.
-        Apenas itens separados contam para progresso (não enviados e compras não contam).
+        Itens separados E não enviados contam como processados (compras não contam).
         
         Returns:
             float: Porcentagem de 0 a 100
@@ -79,12 +79,12 @@ class Order(Base):
             return 0.0
         
         # Usar contadores para evitar lazy loading quando disponíveis
-        # Apenas itens separados contam para progresso (não enviados e compras não contam)
-        if self.items_separated is not None:
-            processed_items = self.items_separated
+        # Itens separados E não enviados contam como processados
+        if self.items_separated is not None and self.items_not_sent is not None:
+            processed_items = self.items_separated + self.items_not_sent
         else:
             # Fallback para contar diretamente os itens (usado em testes)
-            processed_items = sum(1 for item in self.items if item.is_separated)
+            processed_items = sum(1 for item in self.items if item.is_separated or item.not_sent)
             
         return (processed_items / self.items_count) * 100
     
@@ -92,19 +92,20 @@ class Order(Base):
     def is_complete(self) -> bool:
         """
         Verifica se o pedido está completo.
-        Apenas itens separados contam (não enviados e compras não contam).
+        Itens separados E não enviados contam como processados (compras não contam).
         """
         if self.items_count == 0:
             return False
         
         # Usar contadores para evitar lazy loading quando disponíveis
-        # Apenas itens separados contam para completar pedido
-        if self.items_separated is not None:
-            return self.items_separated == self.items_count
+        # Itens separados E não enviados contam para completar pedido
+        if self.items_separated is not None and self.items_not_sent is not None:
+            processed_count = self.items_separated + self.items_not_sent
+            return processed_count == self.items_count
         else:
             # Fallback para contar diretamente os itens (usado em testes)
-            separated_count = sum(1 for item in self.items if item.is_separated)
-            return separated_count == self.items_count
+            processed_count = sum(1 for item in self.items if item.is_separated or item.not_sent)
+            return processed_count == self.items_count
     
     def __repr__(self) -> str:
         return f"<Order {self.order_number} - {self.client_name}>"

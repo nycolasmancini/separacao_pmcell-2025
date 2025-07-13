@@ -15,7 +15,8 @@ export default function OrderSeparation() {
     error,
     updating,
     wsConnected,
-    updateItem
+    updateItem,
+    completeOrder
   } = useSeparation(orderId);
 
 
@@ -38,6 +39,43 @@ export default function OrderSeparation() {
 
   const handleGoBack = () => {
     navigate('/');
+  };
+
+  // Função para verificar se o pedido pode ser completado
+  const canCompleteOrder = () => {
+    if (!order || !items) return false;
+    if (order.status === 'completed') return false;
+    
+    // Calcular quantos itens foram processados (separados + não enviados)
+    const separatedCount = items.filter(item => item.separated).length;
+    const notSentCount = items.filter(item => item.not_sent).length;
+    const processedCount = separatedCount + notSentCount;
+    
+    // Pode completar APENAS quando TODOS os itens foram processados (100%)
+    return processedCount === order.items_count;
+  };
+
+  // Função para lidar com a conclusão do pedido
+  const handleCompleteOrder = async () => {
+    if (!canCompleteOrder()) return;
+    
+    const confirmed = window.confirm(
+      'Tem certeza que deseja finalizar este pedido?\n\n' +
+      'Esta ação marcará o pedido como concluído.'
+    );
+    
+    if (confirmed) {
+      try {
+        await completeOrder();
+        // Opcional: navegar de volta após alguns segundos
+        setTimeout(() => {
+          navigate('/');
+        }, 2000);
+      } catch (error) {
+        // Erro já é tratado no hook useSeparation
+        console.error('Error completing order:', error);
+      }
+    }
   };
 
   if (loading) {
@@ -183,6 +221,31 @@ export default function OrderSeparation() {
               totalItems={order.items_count}
               separatedItems={items.filter(item => item.separated).length}
             />
+            
+            {/* Completion Button */}
+            {canCompleteOrder() && (
+              <div className="mt-4 flex justify-center">
+                <button
+                  onClick={handleCompleteOrder}
+                  disabled={updating}
+                  className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
+                >
+                  {updating ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Finalizando...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Finalizar Pedido
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Informações adicionais */}

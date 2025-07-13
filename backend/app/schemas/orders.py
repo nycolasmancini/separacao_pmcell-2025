@@ -50,6 +50,7 @@ class OrderItemResponse(BaseModel):
     total_price: float = Field(..., description="Preço total")
     separated: bool = Field(..., description="Item separado")
     sent_to_purchase: bool = Field(..., description="Enviado para compras")
+    not_sent: bool = Field(default=False, description="Item não enviado")
     separated_at: Optional[datetime] = Field(None, description="Data de separação")
     
     class Config:
@@ -141,6 +142,7 @@ class WebSocketMessage(BaseModel):
         "order_updated", 
         "item_separated", 
         "item_sent_to_purchase",
+        "item_not_sent",
         "user_joined",
         "user_left",
         "order_completed",
