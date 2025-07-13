@@ -14,7 +14,7 @@ from app.repositories.user import UserRepository
 from app.services.websocket import connection_manager
 from app.schemas.orders import WebSocketMessage
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app.api.websocket")
 router = APIRouter()
 security = HTTPBearer()
 
@@ -33,24 +33,32 @@ async def get_user_from_token(token: str):
         HTTPException: Se token inválido
     """
     try:
+        logger.debug(f"Decoding JWT token: {token[:20]}...")
         payload = jwt.decode(
             token, 
             settings.SECRET_KEY, 
             algorithms=[settings.ALGORITHM]
         )
         user_id: str = payload.get("sub")
+        logger.debug(f"JWT decoded successfully, user_id: {user_id}")
+        
         if user_id is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+            logger.warning("JWT token missing 'sub' claim")
+            raise HTTPException(status_code=401, detail="Invalid token - missing user ID")
+    except JWTError as jwt_error:
+        logger.warning(f"JWT decode error: {str(jwt_error)}")
+        raise HTTPException(status_code=401, detail=f"Invalid token: {str(jwt_error)}")
     
     # Buscar usuário no banco
-    from app.core.deps import get_async_session
-    async with get_async_session() as session:
+    from app.core.database import get_session_maker
+    async with get_session_maker()() as session:
         user_repo = UserRepository(session)
+        logger.debug(f"Looking up user {user_id} in database")
         user = await user_repo.get(int(user_id))
         if user is None:
+            logger.warning(f"User {user_id} not found in database")
             raise HTTPException(status_code=401, detail="User not found")
+        logger.debug(f"User found: {user.name} (role: {user.role})")
         return user
 
 
@@ -66,16 +74,22 @@ async def websocket_orders(
         websocket: Conexão WebSocket
         token: Token JWT para autenticação
     """
+    logger.info(f"WebSocket connection attempt from {websocket.client.host}:{websocket.client.port}")
+    
     if not token:
+        logger.warning("WebSocket connection rejected: No token provided")
         await websocket.close(code=1008, reason="Token required")
         return
     
     try:
         # Autenticar usuário
+        logger.info(f"Authenticating WebSocket with token: {token[:20]}...")
         user = await get_user_from_token(token)
+        logger.info(f"WebSocket authenticated successfully for user {user.id} ({user.name})")
         
         # Conectar usuário
         await connection_manager.connect(websocket, user.id, user.name)
+        logger.info(f"WebSocket connection established for user {user.id}")
         
         try:
             while True:
@@ -86,6 +100,7 @@ async def websocket_orders(
                     # Parse da mensagem
                     import json
                     message_data = json.loads(data)
+                    logger.debug(f"WebSocket message from user {user.id}: {message_data}")
                     
                     # Processar diferentes tipos de mensagem
                     if "type" in message_data:
@@ -94,6 +109,8 @@ async def websocket_orders(
                             message_data["type"], 
                             message_data.get("data", {})
                         )
+                    else:
+                        logger.warning(f"WebSocket message without type from user {user.id}: {message_data}")
                     
                 except json.JSONDecodeError:
                     logger.warning(f"Invalid JSON from user {user.id}: {data}")
@@ -108,8 +125,11 @@ async def websocket_orders(
             await connection_manager.disconnect(user.id)
             
     except Exception as e:
-        logger.error(f"WebSocket authentication error: {str(e)}")
-        await websocket.close(code=1008, reason="Authentication failed")
+        logger.error(f"WebSocket authentication error: {str(e)}", exc_info=True)
+        try:
+            await websocket.close(code=1008, reason="Authentication failed")
+        except Exception as close_error:
+            logger.error(f"Error closing WebSocket after auth failure: {str(close_error)}")
 
 
 async def handle_client_message(user_id: int, message_type: str, data: dict):
@@ -122,15 +142,23 @@ async def handle_client_message(user_id: int, message_type: str, data: dict):
         data: Dados da mensagem
     """
     try:
+        logger.info(f"Processing WebSocket message: user={user_id}, type={message_type}, data={data}")
+        
         if message_type == "join_order":
             order_id = data.get("order_id")
             if order_id:
+                logger.info(f"User {user_id} joining order {order_id}")
                 await connection_manager.join_order(user_id, order_id)
+            else:
+                logger.warning(f"join_order message missing order_id from user {user_id}")
         
         elif message_type == "leave_order":
             order_id = data.get("order_id")
             if order_id:
+                logger.info(f"User {user_id} leaving order {order_id}")
                 await connection_manager.leave_order(user_id, order_id)
+            else:
+                logger.warning(f"leave_order message missing order_id from user {user_id}")
         
         elif message_type == "ping":
             # Responder pong para keep-alive

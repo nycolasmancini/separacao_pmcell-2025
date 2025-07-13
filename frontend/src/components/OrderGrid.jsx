@@ -16,7 +16,7 @@ export default function OrderGrid({
 
   if (loading) {
     return (
-      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 ${className}`}>
+      <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ${className}`}>
         {Array.from({ length: 8 }).map((_, index) => (
           <div
             key={index}
@@ -90,7 +90,7 @@ export default function OrderGrid({
   }
 
   return (
-    <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 ${className}`}>
+    <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ${className}`}>
       {filteredOrders.map((order) => (
         <OrderCard
           key={order.id}

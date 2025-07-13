@@ -129,6 +129,38 @@ class OrderItemRepository(BaseRepository[OrderItem]):
         await self.session.flush()
         return purchase_item
     
+    async def remove_from_purchase(self, item_id: int, user_id: int) -> Optional[OrderItem]:
+        """
+        Remove item das compras.
+        
+        Args:
+            item_id: ID do item
+            user_id: ID do usuário
+            
+        Returns:
+            Optional[OrderItem]: Item atualizado ou None
+        """
+        item = await self.get(item_id)
+        if not item or not item.sent_to_purchase:
+            return None
+            
+        # Remover da compras
+        item.sent_to_purchase = False
+        item.sent_to_purchase_at = None
+        item.sent_to_purchase_by_id = None
+        
+        # Remover registro de compra se existir
+        from app.models.purchase_item import PurchaseItem
+        purchase_query = select(PurchaseItem).where(PurchaseItem.order_item_id == item_id)
+        result = await self.session.execute(purchase_query)
+        purchase_item = result.scalar_one_or_none()
+        
+        if purchase_item:
+            await self.session.delete(purchase_item)
+        
+        await self.session.flush()
+        return item
+
     async def mark_not_sent(
         self, 
         item_id: int, 

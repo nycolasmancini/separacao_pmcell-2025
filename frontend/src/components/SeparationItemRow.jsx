@@ -56,6 +56,21 @@ export default function SeparationItemRow({ item, index, onUpdate, disabled = fa
     }
   };
 
+  const handleMarkAsNotSent = async () => {
+    if (disabled || isUpdating) return;
+    
+    setIsUpdating(true);
+    setShowMenu(false);
+    try {
+      await onUpdate({ not_sent: true });
+    } catch (error) {
+      console.error('Error marking as not sent:', error);
+      // Error is handled by parent component
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -73,8 +88,15 @@ export default function SeparationItemRow({ item, index, onUpdate, disabled = fa
     }).format(new Date(dateString));
   };
 
-  // Cores alternadas (zebra striping)
-  const bgColor = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+  // Background color based on item state
+  const getBackgroundColor = () => {
+    if (item.sent_to_purchase) return 'bg-blue-50'; // Light blue for purchase items
+    if (item.separated) return 'bg-green-50'; // Light green for separated items
+    if (item.not_sent) return 'bg-red-50'; // Light red for not sent items
+    return index % 2 === 0 ? 'bg-white' : 'bg-gray-50'; // Default zebra striping for pending
+  };
+  
+  const bgColor = getBackgroundColor();
   
   // Estado visual do item
   const getItemStatus = () => {
@@ -92,6 +114,14 @@ export default function SeparationItemRow({ item, index, onUpdate, disabled = fa
         badgeColor: 'bg-green-100 text-green-800',
         icon: <CheckCircleIcon className="h-4 w-4" />,
         iconColor: 'text-green-500'
+      };
+    }
+    if (item.not_sent) {
+      return {
+        badge: 'Não Enviado',
+        badgeColor: 'bg-red-100 text-red-800',
+        icon: <XCircleIcon className="h-4 w-4" />,
+        iconColor: 'text-red-500'
       };
     }
     return {
@@ -114,24 +144,34 @@ export default function SeparationItemRow({ item, index, onUpdate, disabled = fa
         <div className="flex-shrink-0">
           <button
             onClick={handleSeparatedToggle}
-            disabled={disabled || isUpdating || item.sent_to_purchase}
+            disabled={disabled || isUpdating || item.not_sent}
             className={`
               w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all
               ${item.separated 
                 ? 'bg-green-500 border-green-500 text-white' 
+                : item.not_sent 
+                ? 'bg-red-500 border-red-500 text-white'
                 : 'border-gray-300 hover:border-orange-400'
               }
-              ${(disabled || isUpdating || item.sent_to_purchase) 
+              ${(disabled || isUpdating || item.sent_to_purchase || item.not_sent) 
                 ? 'opacity-50 cursor-not-allowed' 
                 : 'cursor-pointer'
               }
             `}
-            title={item.sent_to_purchase ? 'Item em compras' : (item.separated ? 'Desmarcar como separado' : 'Marcar como separado')}
+            title={
+              item.sent_to_purchase 
+                ? 'Item em compras' 
+                : item.not_sent 
+                ? 'Item marcado como não enviado' 
+                : (item.separated ? 'Desmarcar como separado' : 'Marcar como separado')
+            }
           >
             {isUpdating ? (
               <div className="animate-spin rounded-full h-3 w-3 border border-current border-t-transparent"></div>
             ) : item.separated ? (
               <CheckCircleIcon className="h-4 w-4" />
+            ) : item.not_sent ? (
+              <XCircleIcon className="h-4 w-4" />
             ) : null}
           </button>
         </div>
@@ -201,23 +241,42 @@ export default function SeparationItemRow({ item, index, onUpdate, disabled = fa
 
             {/* Dropdown menu */}
             {showMenu && (
-              <div className="absolute right-0 top-8 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-10">
+              <div className="absolute right-0 top-8 mt-1 w-56 bg-white rounded-md shadow-lg border border-gray-200 z-10">
                 <div className="py-1">
-                  {!item.sent_to_purchase ? (
-                    <button
-                      onClick={handleSendToPurchase}
-                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
-                    >
-                      <ShoppingCartIcon className="h-4 w-4" />
-                      <span>Enviar para compras</span>
-                    </button>
-                  ) : (
+                  {!item.sent_to_purchase && !item.not_sent && (
+                    <>
+                      <button
+                        onClick={handleSendToPurchase}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                      >
+                        <ShoppingCartIcon className="h-4 w-4" />
+                        <span>Enviar para compras</span>
+                      </button>
+                      <button
+                        onClick={handleMarkAsNotSent}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                      >
+                        <XCircleIcon className="h-4 w-4" />
+                        <span>Marcar como não enviado</span>
+                      </button>
+                    </>
+                  )}
+                  {item.sent_to_purchase && (
                     <button
                       onClick={handleMarkNotSent}
                       className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
                     >
                       <XCircleIcon className="h-4 w-4" />
                       <span>Remover das compras</span>
+                    </button>
+                  )}
+                  {item.not_sent && (
+                    <button
+                      onClick={() => onUpdate({ not_sent: false })}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                    >
+                      <ClockIcon className="h-4 w-4" />
+                      <span>Marcar como pendente</span>
                     </button>
                   )}
                 </div>

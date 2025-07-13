@@ -11,13 +11,15 @@ class OrderItemUpdate(BaseModel):
     item_id: int = Field(..., description="ID do item")
     separated: Optional[bool] = Field(None, description="Marcar como separado")
     sent_to_purchase: Optional[bool] = Field(None, description="Marcar como enviado para compras")
+    not_sent: Optional[bool] = Field(None, description="Marcar como não enviado")
     
     class Config:
         json_schema_extra = {
             "example": {
                 "item_id": 1,
                 "separated": True,
-                "sent_to_purchase": False
+                "sent_to_purchase": False,
+                "not_sent": False
             }
         }
 

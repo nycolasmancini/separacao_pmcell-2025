@@ -31,7 +31,7 @@ export function useSeparation(orderId) {
         tokenStart: token?.substring(0, 20) + '...'
       });
       
-      const response = await fetch(`/api/orders/${orderId}/detail`, {
+      const response = await fetch(`/api/v1/orders/${orderId}/detail`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -83,10 +83,27 @@ export function useSeparation(orderId) {
       const data = await response.json();
       setOrder(data);
       
-      // Ordenar itens alfabeticamente por nome do produto
-      const sortedItems = [...data.items].sort((a, b) => 
-        a.product_name.localeCompare(b.product_name, 'pt-BR', { sensitivity: 'base' })
-      );
+      // Ordenar itens com nova ordem: pendentes > não enviados > compras > separados
+      const sortedItems = [...data.items].sort((a, b) => {
+        // Função para determinar prioridade do item
+        const getPriority = (item) => {
+          if (item.separated) return 4; // Separados por último
+          if (item.sent_to_purchase) return 3; // Compras acima dos separados
+          if (item.not_sent) return 2; // Não enviados acima das compras
+          return 1; // Pendentes primeiro
+        };
+        
+        const priorityA = getPriority(a);
+        const priorityB = getPriority(b);
+        
+        // Se prioridades diferentes, ordenar por prioridade
+        if (priorityA !== priorityB) {
+          return priorityA - priorityB;
+        }
+        
+        // Se mesma prioridade, ordenar alfabeticamente
+        return a.product_name.localeCompare(b.product_name, 'pt-BR', { sensitivity: 'base' });
+      });
       setItems(sortedItems);
       
     } catch (err) {
@@ -135,10 +152,10 @@ export function useSeparation(orderId) {
         itemId,
         updates,
         requestBody,
-        url: `/api/orders/${orderId}/items`
+        url: `/api/v1/orders/${orderId}/items`
       });
       
-      const response = await fetch(`/api/orders/${orderId}/items`, {
+      const response = await fetch(`/api/v1/orders/${orderId}/items`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -157,12 +174,15 @@ export function useSeparation(orderId) {
         let errorMessage = '';
         try {
           const errorData = await response.text();
-          console.error('useSeparation - Erro ao atualizar item:', {
+          console.error('❌ useSeparation - Erro ao atualizar item:', {
             status: response.status,
             statusText: response.statusText,
             body: errorData,
             url: response.url,
-            requestBody
+            requestBody,
+            orderId,
+            itemId,
+            updates
           });
           
           try {
@@ -176,18 +196,50 @@ export function useSeparation(orderId) {
           errorMessage = `Erro ${response.status}: ${response.statusText}`;
         }
         
-        throw new Error(`Erro ao atualizar item (${response.status}): ${errorMessage}`);
+        // Mensagens de erro mais específicas para o usuário
+        if (response.status === 404) {
+          throw new Error('Item ou pedido não encontrado');
+        } else if (response.status === 401) {
+          throw new Error('Acesso negado - faça login novamente');
+        } else if (response.status === 500) {
+          throw new Error('Erro interno do servidor - tente novamente');
+        } else {
+          throw new Error(`Erro ao atualizar item (${response.status}): ${errorMessage}`);
+        }
       }
 
       const updatedOrder = await response.json();
+      console.log('✅ useSeparation - Item atualizado com sucesso:', {
+        orderId,
+        itemId,
+        updates,
+        newProgress: updatedOrder.progress_percentage
+      });
       
       // Atualizar estado local (optimistic update já foi aplicado via WebSocket)
       setOrder(updatedOrder);
       
-      // Atualizar items mantendo ordem alfabética
-      const sortedItems = [...updatedOrder.items].sort((a, b) => 
-        a.product_name.localeCompare(b.product_name, 'pt-BR', { sensitivity: 'base' })
-      );
+      // Atualizar items com nova ordem: pendentes > não enviados > compras > separados
+      const sortedItems = [...updatedOrder.items].sort((a, b) => {
+        // Função para determinar prioridade do item
+        const getPriority = (item) => {
+          if (item.separated) return 4; // Separados por último
+          if (item.sent_to_purchase) return 3; // Compras acima dos separados
+          if (item.not_sent) return 2; // Não enviados acima das compras
+          return 1; // Pendentes primeiro
+        };
+        
+        const priorityA = getPriority(a);
+        const priorityB = getPriority(b);
+        
+        // Se prioridades diferentes, ordenar por prioridade
+        if (priorityA !== priorityB) {
+          return priorityA - priorityB;
+        }
+        
+        // Se mesma prioridade, ordenar alfabeticamente
+        return a.product_name.localeCompare(b.product_name, 'pt-BR', { sensitivity: 'base' });
+      });
       setItems(sortedItems);
 
       // Mostrar toast de sucesso
@@ -199,6 +251,11 @@ export function useSeparation(orderId) {
       if (updates.sent_to_purchase !== undefined) {
         showSuccess(
           updates.sent_to_purchase ? 'Item enviado para compras' : 'Item removido das compras'
+        );
+      }
+      if (updates.not_sent !== undefined) {
+        showSuccess(
+          updates.not_sent ? 'Item marcado como não enviado' : 'Item marcado como pendente'
         );
       }
       
@@ -250,12 +307,20 @@ export function useSeparation(orderId) {
       wsRef.current.onopen = () => {
         console.log('WebSocket connected');
         setWsConnected(true);
+        
+        // Se foi uma reconexão, mostrar mensagem de sucesso
+        if (reconnectAttemptsRef.current > 0) {
+          showSuccess('Conexão reestabelecida!');
+        }
+        
         reconnectAttemptsRef.current = 0;
         
         // Inscrever-se nas atualizações deste pedido
         wsRef.current.send(JSON.stringify({
-          type: 'subscribe',
-          order_id: parseInt(orderId)
+          type: 'join_order',
+          data: {
+            order_id: parseInt(orderId)
+          }
         }));
       };
 
@@ -272,19 +337,51 @@ export function useSeparation(orderId) {
         console.log('WebSocket closed:', event.code, event.reason);
         setWsConnected(false);
         
+        // Log específico para diferentes códigos de erro
+        switch (event.code) {
+          case 1000:
+            console.log('WebSocket closed normally');
+            break;
+          case 1006:
+            console.error('WebSocket closed abnormally (code 1006) - likely connection issue');
+            showError('Conexão perdida - tentando reconectar...');
+            break;
+          case 1008:
+            console.error('WebSocket closed due to policy violation (code 1008) - likely auth issue');
+            showError('Erro de autenticação - faça login novamente');
+            break;
+          case 1011:
+            console.error('WebSocket closed due to server error (code 1011)');
+            showError('Erro no servidor - tentando reconectar...');
+            break;
+          default:
+            console.error(`WebSocket closed with code ${event.code}: ${event.reason}`);
+            break;
+        }
+        
         // Tentar reconectar se não foi um fechamento intencional
-        if (event.code !== 1000 && reconnectAttemptsRef.current < maxReconnectAttempts) {
+        if (event.code !== 1000 && event.code !== 1008 && reconnectAttemptsRef.current < maxReconnectAttempts) {
           const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
+          console.log(`Tentando reconectar WebSocket em ${delay}ms (tentativa ${reconnectAttemptsRef.current + 1}/${maxReconnectAttempts})`);
+          
           reconnectTimeoutRef.current = setTimeout(() => {
             reconnectAttemptsRef.current++;
             connectWebSocket();
           }, delay);
+        } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+          console.error('Máximo de tentativas de reconexão WebSocket atingido');
+          showError('Não foi possível reconectar - recarregue a página');
         }
       };
 
       wsRef.current.onerror = (error) => {
         console.error('WebSocket error:', error);
         setWsConnected(false);
+        
+        // Log mais detalhado do erro
+        if (error.type === 'error') {
+          console.error('WebSocket failed to connect or connection failed');
+        }
       };
 
     } catch (err) {
@@ -302,12 +399,21 @@ export function useSeparation(orderId) {
     switch (type) {
       case 'item_separated':
         if (data.order_id === parseInt(orderId)) {
-          // Optimistic update para responsividade
-          setItems(prevItems => prevItems.map(item => 
-            item.id === data.item_id 
-              ? { ...item, separated: true, separated_at: new Date().toISOString() }
-              : item
-          ));
+          // Optimistic update para responsividade com reordenação
+          setItems(prevItems => {
+            const updatedItems = prevItems.map(item => 
+              item.id === data.item_id 
+                ? { ...item, separated: true, separated_at: new Date().toISOString() }
+                : item
+            );
+            // Reordenar: não separados primeiro, depois separados
+            return updatedItems.sort((a, b) => {
+              if (a.separated !== b.separated) {
+                return a.separated ? 1 : -1;
+              }
+              return a.product_name.localeCompare(b.product_name, 'pt-BR', { sensitivity: 'base' });
+            });
+          });
           setOrder(prevOrder => prevOrder ? {
             ...prevOrder,
             progress_percentage: data.progress_percentage || prevOrder.progress_percentage
@@ -317,11 +423,20 @@ export function useSeparation(orderId) {
 
       case 'item_sent_to_purchase':
         if (data.order_id === parseInt(orderId)) {
-          setItems(prevItems => prevItems.map(item => 
-            item.id === data.item_id 
-              ? { ...item, sent_to_purchase: true }
-              : item
-          ));
+          setItems(prevItems => {
+            const updatedItems = prevItems.map(item => 
+              item.id === data.item_id 
+                ? { ...item, sent_to_purchase: true }
+                : item
+            );
+            // Reordenar: não separados primeiro, depois separados/compras
+            return updatedItems.sort((a, b) => {
+              if (a.separated !== b.separated) {
+                return a.separated ? 1 : -1;
+              }
+              return a.product_name.localeCompare(b.product_name, 'pt-BR', { sensitivity: 'base' });
+            });
+          });
         }
         break;
 
@@ -358,7 +473,14 @@ export function useSeparation(orderId) {
 
   // Cleanup function
   const cleanup = useCallback(() => {
-    if (wsRef.current) {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      // Sair do pedido antes de fechar a conexão
+      wsRef.current.send(JSON.stringify({
+        type: 'leave_order',
+        data: {
+          order_id: parseInt(orderId)
+        }
+      }));
       wsRef.current.close(1000, 'Component unmounting');
       wsRef.current = null;
     }
@@ -366,7 +488,7 @@ export function useSeparation(orderId) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
     }
-  }, []);
+  }, [orderId]);
 
   // Effects
   useEffect(() => {

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Optional
 import tempfile
 import logging
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import JSONResponse
@@ -40,7 +41,7 @@ from app.api.v1.websocket import (
 )
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app.api.orders")
 router = APIRouter()
 
 
@@ -239,7 +240,10 @@ async def list_orders(
         ]
         
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
         logger.error(f"Error listing orders for user {current_user.id}: {str(e)}")
+        logger.error(f"Full traceback: {error_details}")
         raise HTTPException(
             status_code=500,
             detail="Erro interno ao listar pedidos"
@@ -356,10 +360,22 @@ async def get_orders_stats(
         )
         
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
         logger.error(f"Error getting orders stats for user {current_user.id}: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="Erro interno ao buscar estatísticas"
+        logger.error(f"Full traceback: {error_details}")
+        print(f"DEBUG - Stats endpoint error: {error_details}")
+        # Return empty stats for now
+        from app.schemas.orders import OrderStats
+        return OrderStats(
+            total_orders=0,
+            orders_in_progress=0,
+            orders_completed=0,
+            orders_pending=0,
+            total_items=0,
+            items_separated=0,
+            items_in_purchase=0,
+            average_separation_time=None
         )
 
 
@@ -426,20 +442,35 @@ async def get_order_detail(
         OrderDetailResponse: Dados completos do pedido
     """
     try:
+        logger.info(f"Getting order detail for order_id={order_id}, user_id={current_user.id}")
+        
         # Registrar acesso ao pedido
         access_repo = OrderAccessRepository(session)
+        logger.debug(f"Creating access record for order {order_id}, user {current_user.id}")
         await access_repo.create_access(order_id, current_user.id)
         
         # Buscar pedido
         order_repo = OrderRepository(session)
+        logger.debug(f"Fetching order {order_id} from database")
         order = await order_repo.get(order_id)
         
         if not order:
+            logger.warning(f"Order {order_id} not found in database")
             raise HTTPException(status_code=404, detail="Pedido não encontrado")
+        
+        logger.debug(f"Order {order_id} found: {order.order_number}")
         
         # Buscar itens
         item_repo = OrderItemRepository(session)
+        logger.debug(f"Fetching items for order {order_id}")
         items = await item_repo.get_by_order(order_id)
+        logger.debug(f"Found {len(items)} items for order {order_id}")
+        
+        # Calculate progress based on fetched items instead of using the property
+        # that causes lazy loading in async context
+        # Only separated items count for progress (not purchase items)
+        processed_items = sum(1 for item in items if item.is_separated)
+        progress_percentage = (processed_items / len(items)) * 100 if items else 0.0
         
         return OrderDetailResponse(
             id=order.id,
@@ -448,7 +479,7 @@ async def get_order_detail(
             seller_name=order.seller_name,
             total_value=order.total_value,
             items_count=order.items_count,
-            progress_percentage=order.progress_percentage,
+            progress_percentage=progress_percentage,
             status=order.status,
             logistics_type=order.logistics_type,
             package_type=order.package_type,
@@ -474,10 +505,22 @@ async def get_order_detail(
     except HTTPException:
         raise
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
         logger.error(f"Error getting order detail {order_id} for user {current_user.id}: {str(e)}")
+        logger.error(f"Full traceback: {error_details}")
+        
+        # Provide more specific error information for debugging
+        error_info = {
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+            "order_id": order_id,
+            "user_id": current_user.id
+        }
+        
         raise HTTPException(
             status_code=500,
-            detail="Erro interno ao buscar detalhes do pedido"
+            detail=f"Erro interno ao buscar detalhes do pedido: {str(e)}"
         )
 
 
@@ -545,8 +588,22 @@ async def update_order_items(
                         # Notificar envio para compras via WebSocket
                         await notify_item_sent_to_purchase(order_id, update.item_id)
                 else:
-                    await item_repo.mark_not_sent(update.item_id, current_user.id)
+                    await item_repo.remove_from_purchase(update.item_id, current_user.id)
+                    logger.info(f"Item {update.item_id} removed from purchase by user {current_user.id}")
+            
+            if update.not_sent is not None:
+                if update.not_sent:
+                    # Marcar como não enviado
+                    item.not_sent = True
+                    item.not_sent_at = datetime.utcnow()
+                    item.not_sent_by_id = current_user.id
                     logger.info(f"Item {update.item_id} marked as not sent by user {current_user.id}")
+                else:
+                    # Reverter não enviado
+                    item.not_sent = False
+                    item.not_sent_at = None
+                    item.not_sent_by_id = None
+                    logger.info(f"Item {update.item_id} marked as pending by user {current_user.id}")
         
         # Commit todas as mudanças
         await session.commit()

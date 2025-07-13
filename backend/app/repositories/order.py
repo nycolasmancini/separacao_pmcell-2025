@@ -159,16 +159,21 @@ class OrderRepository(BaseRepository[Order]):
         # Contar itens
         items_separated = sum(1 for item in order.items if item.is_separated)
         items_in_purchase = sum(1 for item in order.items if item.sent_to_purchase)
+        items_not_sent = sum(1 for item in order.items if item.not_sent)
         
         # Atualizar contadores
         order.items_separated = items_separated
         order.items_in_purchase = items_in_purchase
+        order.items_not_sent = items_not_sent
         
         # Atualizar status se necessário
-        if order.is_complete:
+        # Verificar se está completo sem usar a propriedade is_complete (evita lazy loading)
+        # Apenas itens separados contam como "completados"
+        is_complete = items_separated == order.items_count and order.items_count > 0
+        if is_complete:
             order.status = OrderStatus.COMPLETED
             order.completed_at = datetime.utcnow()
-        elif items_separated > 0 or items_in_purchase > 0:
+        elif items_separated > 0 or items_in_purchase > 0 or items_not_sent > 0:
             order.status = OrderStatus.IN_PROGRESS
             
         await self.session.flush()
@@ -304,20 +309,32 @@ class OrderRepository(BaseRepository[Order]):
         Returns:
             List[Order]: Lista de pedidos
         """
-        query = select(Order).order_by(Order.created_at.desc())
-        
-        # Aplicar filtro por status se fornecido
-        if status_filter:
-            try:
-                status_enum = OrderStatus(status_filter)
-                query = query.where(Order.status == status_enum)
-            except ValueError:
-                # Ignora filtro inválido
-                pass
-        
-        query = query.offset(offset).limit(limit)
-        result = await self.session.execute(query)
-        return list(result.scalars().all())
+        try:
+            from sqlalchemy.orm import selectinload
+            
+            query = (
+                select(Order)
+                .options(selectinload(Order.items))  # Eagerly load items relationship
+                .order_by(Order.created_at.desc())
+            )
+            
+            # Aplicar filtro por status se fornecido
+            if status_filter:
+                try:
+                    status_enum = OrderStatus(status_filter)
+                    query = query.where(Order.status == status_enum)
+                except ValueError:
+                    # Ignora filtro inválido
+                    pass
+            
+            query = query.offset(offset).limit(limit)
+            result = await self.session.execute(query)
+            return list(result.scalars().all())
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error in list_paginated: {str(e)}")
+            raise
     
     async def recalculate_progress(self, order_id: int) -> Optional[Order]:
         """

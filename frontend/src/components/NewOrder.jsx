@@ -165,9 +165,23 @@ function NewOrder() {
     } catch (error) {
       console.error('Error creating order:', error);
       
-      const errorMessage = error.response?.data?.detail || 
-                         error.message || 
-                         'Erro ao criar pedido';
+      let errorMessage = 'Erro ao criar pedido';
+      
+      if (error.response?.data?.detail) {
+        // Handle both string and array/object error formats
+        const detail = error.response.data.detail;
+        if (typeof detail === 'string') {
+          errorMessage = detail;
+        } else if (Array.isArray(detail) && detail.length > 0) {
+          // Pydantic validation errors come as array
+          errorMessage = detail.map(err => err.msg || err.message || 'Erro de validação').join(', ');
+        } else if (typeof detail === 'object' && detail.msg) {
+          errorMessage = detail.msg;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       addToast(errorMessage, 'error');
       
     } finally {

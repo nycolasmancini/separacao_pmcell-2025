@@ -122,9 +122,9 @@ function Dashboard() {
         <motion.header
           initial={{ y: -50, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="bg-white shadow-sm border-b touch-padding"
+          className="bg-white shadow-sm border-b"
         >
-          <div className="container-app">
+          <div className="px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 {!isTabletUp && (
@@ -151,7 +151,7 @@ function Dashboard() {
         </motion.header>
 
         {/* Content Area */}
-        <main className="flex-1 p-4 tablet:p-6">
+        <main className="flex-1 px-4 py-2 tablet:px-4 tablet:py-4">
           <motion.div
             variants={staggerContainerVariants}
             initial="initial"
@@ -271,16 +271,15 @@ function Dashboard() {
                   </div>
                 </div>
               </div>
-              <div className="touch-padding">
-                <ComponentErrorBoundary>
-                  <OrderGrid
-                    orders={filteredOrders}
-                    loading={loading}
-                    onOrderClick={handleOrderClick}
-                    activeUsers={activeUsers}
-                  />
-                </ComponentErrorBoundary>
-              </div>
+              <ComponentErrorBoundary>
+                <OrderGrid
+                  orders={filteredOrders}
+                  loading={loading}
+                  onOrderClick={handleOrderClick}
+                  activeUsers={activeUsers}
+                  className="p-4"
+                />
+              </ComponentErrorBoundary>
             </motion.div>
           </motion.div>
         </main>

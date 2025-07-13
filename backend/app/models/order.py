@@ -55,6 +55,7 @@ class Order(Base):
     items_count = Column(Integer, default=0, nullable=False)
     items_separated = Column(Integer, default=0, nullable=False)
     items_in_purchase = Column(Integer, default=0, nullable=False)
+    items_not_sent = Column(Integer, default=0, nullable=False)
     
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -69,7 +70,7 @@ class Order(Base):
     def progress_percentage(self) -> float:
         """
         Calcula a porcentagem de progresso do pedido.
-        Considera como "processados" os itens separados OU enviados para compras.
+        Apenas itens separados contam para progresso (não enviados e compras não contam).
         
         Returns:
             float: Porcentagem de 0 a 100
@@ -77,28 +78,33 @@ class Order(Base):
         if self.items_count == 0:
             return 0.0
         
-        # Contar itens processados: separados ou em compras
-        processed_items = 0
-        for item in self.items:
-            if item.is_separated or item.sent_to_purchase:
-                processed_items += 1
-        
+        # Usar contadores para evitar lazy loading quando disponíveis
+        # Apenas itens separados contam para progresso (não enviados e compras não contam)
+        if self.items_separated is not None:
+            processed_items = self.items_separated
+        else:
+            # Fallback para contar diretamente os itens (usado em testes)
+            processed_items = sum(1 for item in self.items if item.is_separated)
+            
         return (processed_items / self.items_count) * 100
     
     @property
     def is_complete(self) -> bool:
         """
         Verifica se o pedido está completo.
-        Todos os itens devem estar separados OU enviados para compras.
+        Apenas itens separados contam (não enviados e compras não contam).
         """
         if self.items_count == 0:
             return False
         
-        for item in self.items:
-            if not (item.is_separated or item.sent_to_purchase):
-                return False
-        
-        return True
+        # Usar contadores para evitar lazy loading quando disponíveis
+        # Apenas itens separados contam para completar pedido
+        if self.items_separated is not None:
+            return self.items_separated == self.items_count
+        else:
+            # Fallback para contar diretamente os itens (usado em testes)
+            separated_count = sum(1 for item in self.items if item.is_separated)
+            return separated_count == self.items_count
     
     def __repr__(self) -> str:
         return f"<Order {self.order_number} - {self.client_name}>"

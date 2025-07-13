@@ -87,7 +87,7 @@ def test_order_progress_percentage_with_purchase_items():
         unit_price=10.0,
         total_price=10.0,
         is_separated=False,
-        sent_to_purchase=True  # Sent to purchase should count as processed
+        sent_to_purchase=True  # Sent to purchase should NOT count as progress
     )
     item2 = OrderItem(
         product_code="002",
@@ -110,8 +110,8 @@ def test_order_progress_percentage_with_purchase_items():
     
     order.items = [item1, item2, item3]
     
-    # 2 of 3 items processed (1 separated + 1 in purchase) = 66.67%
-    expected = (2 / 3) * 100
+    # Only 1 of 3 items separated (purchase items don't count) = 33.33%
+    expected = (1 / 3) * 100
     assert abs(order.progress_percentage - expected) < 0.01
 
 
@@ -152,7 +152,7 @@ def test_order_progress_percentage_mixed_items():
         unit_price=30.0,
         total_price=30.0,
         is_separated=True,
-        sent_to_purchase=True  # Both separated AND in purchase (should count once)
+        sent_to_purchase=True  # Both separated AND in purchase (only separated counts)
     )
     item4 = OrderItem(
         product_code="004",
@@ -166,13 +166,13 @@ def test_order_progress_percentage_mixed_items():
     
     order.items = [item1, item2, item3, item4]
     
-    # 3 of 4 items processed = 75%
-    expected = (3 / 4) * 100
+    # Only 2 of 4 items separated (purchase items don't count) = 50%
+    expected = (2 / 4) * 100
     assert order.progress_percentage == expected
 
 
 def test_order_progress_percentage_100_percent():
-    """Test progress percentage when all items are processed."""
+    """Test progress percentage when all items are separated."""
     order = Order(
         order_number="12345",
         client_name="Test Client",
@@ -198,13 +198,13 @@ def test_order_progress_percentage_100_percent():
         quantity=1,
         unit_price=50.0,
         total_price=50.0,
-        is_separated=False,
-        sent_to_purchase=True
+        is_separated=True,
+        sent_to_purchase=False
     )
     
     order.items = [item1, item2]
     
-    # All items processed = 100%
+    # All items separated = 100%
     assert order.progress_percentage == 100.0
 
 
@@ -258,8 +258,8 @@ def test_order_is_complete_partial():
     assert not order.is_complete
 
 
-def test_order_is_complete_all_processed():
-    """Test is_complete when all items are processed."""
+def test_order_is_complete_all_separated():
+    """Test is_complete when all items are separated."""
     order = Order(
         order_number="12345",
         client_name="Test Client",
@@ -285,7 +285,7 @@ def test_order_is_complete_all_processed():
         quantity=1,
         unit_price=35.0,
         total_price=35.0,
-        is_separated=False,
+        is_separated=True,
         sent_to_purchase=True
     )
     item3 = OrderItem(
@@ -295,7 +295,7 @@ def test_order_is_complete_all_processed():
         unit_price=35.0,
         total_price=35.0,
         is_separated=True,
-        sent_to_purchase=True  # Both (counts as processed)
+        sent_to_purchase=False
     )
     
     order.items = [item1, item2, item3]
