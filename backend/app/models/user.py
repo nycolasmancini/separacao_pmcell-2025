@@ -33,6 +33,7 @@ class User(Base):
     pin_hash = Column(String(255), nullable=False)
     pin_unique = Column(String(4), nullable=False, unique=True, index=True)  # PIN para unicidade
     role = Column(SQLEnum(UserRole), nullable=False)
+    photo_url = Column(String(500), nullable=True)  # URL para foto do usuário
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     

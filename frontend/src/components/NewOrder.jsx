@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ToastContainer';
+import { useResponsive } from '../hooks/useResponsive';
 import Sidebar from './Sidebar';
 import { debugLog, incrementCounter } from '../utils/debug';
 import { api } from '../services/api';
@@ -8,6 +9,7 @@ import { api } from '../services/api';
 function NewOrder() {
   const navigate = useNavigate();
   const { addToast } = useToast();
+  const { isTabletUp } = useResponsive();
   const [step, setStep] = useState(1); // 1: Upload, 2: Preview, 3: Confirm
   const [formData, setFormData] = useState({
     logistics: '',
@@ -17,6 +19,7 @@ function NewOrder() {
   const [uploadedFile, setUploadedFile] = useState(null);
   const [extractedData, setExtractedData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   debugLog('newOrder', 'RENDER', {
     step,
@@ -132,6 +135,10 @@ function NewOrder() {
     return extractedData && formData.logistics && formData.packageType;
   };
 
+  const handleSidebarCollapse = (collapsed) => {
+    setSidebarCollapsed(collapsed);
+  };
+
   const handleCreateOrder = async () => {
     if (!extractedData) {
       addToast('Dados do pedido não encontrados', 'error');
@@ -190,10 +197,12 @@ function NewOrder() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
+    <div className="min-h-screen bg-gray-50">
+      <Sidebar onCollapsedChange={handleSidebarCollapse} />
       
-      <div className="flex-1 overflow-auto">
+      <div className={`main-content min-h-screen overflow-auto ${
+        isTabletUp ? (sidebarCollapsed ? 'ml-16' : 'ml-64') : 'ml-0'
+      }`}>
         <div className="max-w-4xl mx-auto p-6">
           {/* Header */}
           <div className="mb-8">

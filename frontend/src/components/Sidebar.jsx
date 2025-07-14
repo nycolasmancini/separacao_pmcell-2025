@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
+import { useResponsive } from '../hooks/useResponsive';
 
 export default function Sidebar({ 
   currentPage = 'dashboard',
   onNavigate,
+  onCollapsedChange,
   className = ''
 }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { user, logout } = useAuthStore();
+  const { isTabletUp } = useResponsive();
 
   const navigationItems = [
     {
@@ -58,6 +61,13 @@ export default function Sidebar({
     item.roles.includes(user?.role)
   );
 
+  // Notify parent when collapsed state changes
+  useEffect(() => {
+    if (onCollapsedChange) {
+      onCollapsedChange(isCollapsed);
+    }
+  }, [isCollapsed, onCollapsedChange]);
+
   const handleNavigation = (page) => {
     if (onNavigate) {
       onNavigate(page);
@@ -77,8 +87,14 @@ export default function Sidebar({
       .toUpperCase();
   };
 
+  // Don't render sidebar on mobile devices
+  if (!isTabletUp) {
+    return null;
+  }
+
   return (
     <div className={`
+      sidebar-layout fixed left-0 top-0 h-full z-40
       bg-white border-r border-gray-200 flex flex-col transition-all duration-300
       ${isCollapsed ? 'w-16' : 'w-64'} 
       ${className}
@@ -121,10 +137,13 @@ export default function Sidebar({
               <button
                 onClick={() => handleNavigation(item.key)}
                 className={`
-                  w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left
-                  transition-colors hover:bg-gray-100
+                  w-full flex items-center rounded-lg transition-colors hover:bg-gray-100
+                  ${isCollapsed 
+                    ? 'justify-center px-2 py-3' 
+                    : 'justify-start space-x-3 px-3 py-2 text-left'
+                  }
                   ${currentPage === item.key 
-                    ? 'bg-orange-100 text-orange-700 border-r-2 border-orange-500' 
+                    ? `bg-orange-100 text-orange-700 ${isCollapsed ? 'rounded-lg' : 'border-r-2 border-orange-500'}` 
                     : 'text-gray-700'
                   }
                 `}

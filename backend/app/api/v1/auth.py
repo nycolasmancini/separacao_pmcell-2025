@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...core.database import get_async_session
-from ...schemas.auth import LoginRequest, TokenResponse, UserResponse
+from ...schemas.auth import LoginRequest, TokenResponse, UserResponse, OrderAccessRequest, OrderAccessResponse
 from ...services.auth import AuthService
 from ...core.deps import get_current_active_user
 from ...models.user import User
@@ -26,6 +26,7 @@ async def get_current_user_info(
         id=current_user.id,
         name=current_user.name,
         role=current_user.role,
+        photo_url=current_user.photo_url,
         created_at=current_user.created_at
     )
 
@@ -35,3 +36,12 @@ async def logout(
 ):
     """Logout (no backend só confirmamos que o usuário está autenticado)"""
     return {"message": "Logout realizado com sucesso"}
+
+@router.post("/order-access", response_model=OrderAccessResponse)
+async def order_access(
+    access_data: OrderAccessRequest,
+    db: AsyncSession = Depends(get_async_session)
+):
+    """Autenticação para acesso a um pedido específico"""
+    auth_service = AuthService(db)
+    return await auth_service.authenticate_order_access(access_data)

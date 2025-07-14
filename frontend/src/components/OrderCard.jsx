@@ -1,4 +1,6 @@
 import { useState, memo } from 'react';
+import { useAuthStore } from '../store/authStore';
+import UserAvatar from './UserAvatar';
 
 const OrderCard = memo(function OrderCard({ 
   order, 
@@ -7,6 +9,10 @@ const OrderCard = memo(function OrderCard({
   className = '' 
 }) {
   const [isHovered, setIsHovered] = useState(false);
+  const { orderAccessUser, currentOrderId } = useAuthStore();
+  
+  // Verificar se alguém está acessando este pedido
+  const isCurrentlyAccessed = currentOrderId === order.id && orderAccessUser;
 
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -114,19 +120,33 @@ const OrderCard = memo(function OrderCard({
         </div>
       </div>
 
-      {/* Usuários ativos (fotos circulares) */}
-      {activeUsers && activeUsers.length > 0 && (
+      {/* Usuário acessando atualmente */}
+      {isCurrentlyAccessed && (
+        <div className="flex items-center space-x-2">
+          <p className="text-xs text-gray-600">Acessando:</p>
+          <UserAvatar 
+            user={orderAccessUser} 
+            size="sm" 
+            showTooltip={true}
+          />
+          <p className="text-xs text-primary-600 font-medium">
+            {orderAccessUser.name}
+          </p>
+        </div>
+      )}
+
+      {/* Usuários ativos (fotos circulares) - apenas se não há acesso atual */}
+      {!isCurrentlyAccessed && activeUsers && activeUsers.length > 0 && (
         <div className="flex items-center space-x-2">
           <p className="text-xs text-gray-600">Acessando:</p>
           <div className="flex -space-x-2">
             {activeUsers.slice(0, 3).map((user, index) => (
-              <div
+              <UserAvatar
                 key={user.id || index}
-                className="w-8 h-8 rounded-full bg-orange-500 border-2 border-white flex items-center justify-center text-white text-xs font-medium"
-                title={user.name}
-              >
-                {getUserInitials(user.name)}
-              </div>
+                user={user}
+                size="sm"
+                showTooltip={true}
+              />
             ))}
             {activeUsers.length > 3 && (
               <div className="w-8 h-8 rounded-full bg-gray-400 border-2 border-white flex items-center justify-center text-white text-xs font-medium">

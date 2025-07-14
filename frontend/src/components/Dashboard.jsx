@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import Sidebar from './Sidebar';
 import OrderGrid from './OrderGrid';
 import StatusFilter from './StatusFilter';
+import OrderAccessLogin from './OrderAccessLogin';
 import { useToast } from './ToastContainer';
 import { useOrders } from '../hooks/useOrders';
 import { ComponentErrorBoundary } from './ErrorBoundary';
@@ -14,7 +15,7 @@ import { dashboardAnimations, staggerContainerVariants } from '../utils/animatio
 import Logo from './Logo';
 
 function Dashboard() {
-  const { user } = useAuthStore();
+  const { user, setOrderAccess } = useAuthStore();
   const { showSuccess, showError, showInfo } = useToast();
   const navigate = useNavigate();
   const { isTabletUp, isMobile } = useResponsive();
@@ -33,6 +34,11 @@ function Dashboard() {
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [orderCounts, setOrderCounts] = useState({});
   const [activeUsers, setActiveUsers] = useState({});
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
+  // Order access modal state
+  const [isOrderAccessModalOpen, setIsOrderAccessModalOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
 
   // Show messages only once after initial load - usando useRef para controlar
   const hasShownInitialMessageRef = useRef(false);
@@ -84,21 +90,45 @@ function Dashboard() {
   };
 
   const handleOrderClick = (order) => {
-    // Todos os usuários autenticados podem acessar a separação
-    // Role serve apenas para auditoria/log
-    console.log('Dashboard - Acessando pedido:', {
+    console.log('Dashboard - Solicitando acesso ao pedido:', {
       orderId: order.id,
       orderNumber: order.order_number,
       user: user?.name,
       userRole: user?.role
     });
     
+    // Abrir modal de autenticação para acesso ao pedido
+    setSelectedOrder(order);
+    setIsOrderAccessModalOpen(true);
+  };
+
+  const handleOrderAccessSuccess = (accessUser, order) => {
+    console.log('Dashboard - Acesso ao pedido autorizado:', {
+      orderId: order.id,
+      orderNumber: order.order_number,
+      accessUser: accessUser.name,
+      accessUserRole: accessUser.role
+    });
+
+    // Definir acesso ao pedido no estado global
+    setOrderAccess(accessUser, order.id);
+    
+    // Navegar para a tela de separação
     navigate(`/orders/${order.id}/separation`);
-    showInfo(`Abrindo separação do pedido #${order.order_number}`);
+    showSuccess(`Acesso autorizado! Abrindo separação do pedido #${order.order_number}`);
+  };
+
+  const handleOrderAccessClose = () => {
+    setIsOrderAccessModalOpen(false);
+    setSelectedOrder(null);
   };
 
   const handleFilterChange = (filter) => {
     setStatusFilter(filter);
+  };
+
+  const handleSidebarCollapse = (collapsed) => {
+    setSidebarCollapsed(collapsed);
   };
 
   // Show loading skeleton only during initial load
@@ -107,17 +137,20 @@ function Dashboard() {
   }
 
   return (
-    <div className={`min-h-screen bg-gray-50 ${isTabletUp ? 'flex' : 'block'} safe-top safe-bottom`}>
+    <div className="min-h-screen bg-gray-50 safe-top safe-bottom">
       {/* Sidebar */}
       <ComponentErrorBoundary>
         <Sidebar
           currentPage={currentPage}
           onNavigate={handleNavigation}
+          onCollapsedChange={handleSidebarCollapse}
         />
       </ComponentErrorBoundary>
 
       {/* Main Content */}
-      <div className={`flex-1 flex flex-col ${isTabletUp ? 'ml-64' : ''}`}>
+      <div className={`main-content flex flex-col min-h-screen ${
+        isTabletUp ? (sidebarCollapsed ? 'ml-16' : 'ml-64') : 'ml-0'
+      }`}>
         {/* Header */}
         <motion.header
           initial={{ y: -50, opacity: 0 }}
@@ -284,6 +317,14 @@ function Dashboard() {
           </motion.div>
         </main>
       </div>
+
+      {/* Order Access Modal */}
+      <OrderAccessLogin
+        isOpen={isOrderAccessModalOpen}
+        onClose={handleOrderAccessClose}
+        order={selectedOrder}
+        onSuccess={handleOrderAccessSuccess}
+      />
     </div>
   );
 }

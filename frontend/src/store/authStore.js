@@ -34,6 +34,11 @@ export const useAuthStore = create(
         isAuthenticated: false,
         isLoading: false,
         error: null,
+        
+        // Estado do acesso aos pedidos
+        orderAccessUser: null,  // Usuário que acessou o pedido
+        currentOrderId: null,   // ID do pedido sendo acessado
+        isOrderAuthenticated: false,
 
         // Ações
       login: async (pin) => {
@@ -137,6 +142,34 @@ export const useAuthStore = create(
       isAdmin: () => {
         const { user } = get();
         return user?.role === 'admin';
+      },
+
+      // Acesso aos pedidos
+      setOrderAccess: (user, orderId) => {
+        console.log('AuthStore - Definindo acesso ao pedido:', {
+          user: user,
+          orderId: orderId
+        });
+        set({
+          orderAccessUser: user,
+          currentOrderId: orderId,
+          isOrderAuthenticated: true
+        });
+      },
+
+      clearOrderAccess: () => {
+        console.log('AuthStore - Limpando acesso ao pedido');
+        set({
+          orderAccessUser: null,
+          currentOrderId: null,
+          isOrderAuthenticated: false
+        });
+      },
+
+      // Verificar se tem acesso ao pedido específico
+      hasOrderAccess: (orderId) => {
+        const { isOrderAuthenticated, currentOrderId } = get();
+        return isOrderAuthenticated && currentOrderId === orderId;
       }
       };
       
@@ -148,7 +181,10 @@ export const useAuthStore = create(
       partialize: (state) => ({
         user: state.user,
         token: state.token,
-        isAuthenticated: state.isAuthenticated
+        isAuthenticated: state.isAuthenticated,
+        orderAccessUser: state.orderAccessUser,
+        currentOrderId: state.currentOrderId,
+        isOrderAuthenticated: state.isOrderAuthenticated
       })
     }
     )

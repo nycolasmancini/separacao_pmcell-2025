@@ -2,11 +2,20 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon, ClockIcon, UserIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
 import SeparationItemRow from './SeparationItemRow';
 import SeparationProgress from './SeparationProgress';
+import UserAvatar from './UserAvatar';
 import { useSeparation } from '../hooks/useSeparation';
+import { useAuthStore } from '../store/authStore';
 
 export default function OrderSeparation() {
   const { orderId } = useParams();
   const navigate = useNavigate();
+  
+  const { 
+    orderAccessUser, 
+    currentOrderId, 
+    hasOrderAccess,
+    clearOrderAccess 
+  } = useAuthStore();
   
   const {
     order,
@@ -18,6 +27,10 @@ export default function OrderSeparation() {
     updateItem,
     completeOrder
   } = useSeparation(orderId);
+
+  // Verificar se o usuário tem acesso a este pedido
+  const hasAccess = hasOrderAccess(parseInt(orderId));
+  const currentUser = orderAccessUser;
 
 
   const formatCurrency = (value) => {
@@ -38,8 +51,35 @@ export default function OrderSeparation() {
   };
 
   const handleGoBack = () => {
+    // Limpar acesso ao pedido quando sair
+    clearOrderAccess();
     navigate('/');
   };
+
+  // Verificar acesso - redirecionar se não autorizado
+  if (!loading && !hasAccess) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-orange-500 text-2xl">🔒</span>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">
+            Acesso Negado
+          </h2>
+          <p className="text-gray-600 mb-4">
+            Você precisa autenticar para acessar este pedido.
+          </p>
+          <button
+            onClick={() => navigate('/')}
+            className="w-full bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            Voltar ao Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Função para verificar se o pedido pode ser completado
   const canCompleteOrder = () => {
@@ -187,6 +227,18 @@ export default function OrderSeparation() {
               <h1 className="text-xl font-semibold text-gray-900">
                 Separação - Orçamento #{order.order_number}
               </h1>
+              {currentUser && (
+                <div className="flex items-center space-x-2 bg-orange-50 px-3 py-1 rounded-full">
+                  <UserAvatar 
+                    user={currentUser} 
+                    size="xs" 
+                    showTooltip={false}
+                  />
+                  <span className="text-sm font-medium text-orange-800">
+                    {currentUser.name}
+                  </span>
+                </div>
+              )}
             </div>
             <div className="flex items-center space-x-4 text-sm text-gray-500">
               <div className="flex items-center space-x-1">
