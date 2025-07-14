@@ -127,10 +127,106 @@ def analyze_pdf(pdf_path):
                     print(f"   Linha {i+1}: {line.strip()}")
         else:
             print(f"❌ Não encontrado: '{keyword}'")
+    
+    # Analisa as linhas de itens especificamente
+    print("\n" + "="*80)
+    print("ANÁLISE DAS LINHAS DE ITENS")
+    print("="*80)
+    
+    lines = text.splitlines()
+    item_lines = []
+    for i, line in enumerate(lines):
+        if '-->' in line and 'UN' in line:
+            print(f"Linha {i+1}: {line.strip()}")
+            item_lines.append(line.strip())
+    
+    print(f"\nTotal de linhas com itens encontradas: {len(item_lines)}")
+    
+    # Testa novo pattern para itens
+    print("\n--- TESTANDO NOVO PATTERN PARA ITENS ---")
+    new_item_pattern = r'(\d{5})\s+([A-Z0-9\s]+)\s+-->\s+([^U]+)\s+UN\s+(\d+)\s+([\d,\.]+)\s+([\d,\.]+)'
+    
+    for line in item_lines:
+        match = re.search(new_item_pattern, line)
+        if match:
+            print(f"✅ MATCH: {match.groups()}")
+        else:
+            print(f"❌ NO MATCH: {line}")
+            
+    # Testa pattern mais flexível
+    print("\n--- TESTANDO PATTERN MAIS FLEXÍVEL ---")
+    flexible_pattern = r'(\d+)\s+([A-Z0-9\s\-]+)\s+-->\s+([^U]+)\s+UN\s+(\d+)\s+([\d,\.]+)\s+([\d,\.]+)'
+    
+    for line in item_lines:
+        match = re.search(flexible_pattern, line)
+        if match:
+            print(f"✅ MATCH: {match.groups()}")
+        else:
+            print(f"❌ NO MATCH: {line}")
+    
+    # Testa pattern correto baseado na análise
+    print("\n--- TESTANDO PATTERN CORRETO ---")
+    correct_pattern = r'(\d+)\s+([A-Z0-9\s\-]+?)\s+-->\s+([^U]+?)\s+UN\s+(\d+)\s+([\d,\.]+)\s+([\d,\.]+)'
+    
+    for line in item_lines:
+        match = re.search(correct_pattern, line)
+        if match:
+            print(f"✅ MATCH: {match.groups()}")
+        else:
+            print(f"❌ NO MATCH: {line}")
+    
+    # Analisa formato exato - sem espaços entre grupos
+    print("\n--- ANÁLISE FORMATO EXATO ---")
+    for i, line in enumerate(item_lines):
+        print(f"Linha {i+1}: '{line}'")
+        # Quebra a linha em componentes
+        parts = line.split()
+        print(f"  Partes: {parts}")
+        
+        # Encontra o índice do '-->'
+        if '-->' in parts:
+            arrow_idx = parts.index('-->')
+            print(f"  Seta em índice: {arrow_idx}")
+            
+            # Encontra o índice do 'UN'
+            if 'UN' in parts:
+                un_idx = parts.index('UN')
+                print(f"  UN em índice: {un_idx}")
+                
+                # Reconstrói os componentes
+                codigo = parts[0]
+                modelo = ' '.join(parts[1:arrow_idx])
+                descricao = ' '.join(parts[arrow_idx+1:un_idx])
+                quantidade = parts[un_idx+1]
+                valor_unit = parts[un_idx+2]
+                valor_total = parts[un_idx+3]
+                
+                print(f"  Código: '{codigo}'")
+                print(f"  Modelo: '{modelo}'")
+                print(f"  Descrição: '{descricao}'")
+                print(f"  Quantidade: '{quantidade}'")
+                print(f"  Valor Unitário: '{valor_unit}'")
+                print(f"  Valor Total: '{valor_total}'")
+        print()
+    
+    # Testa pattern baseado na análise
+    print("\n--- TESTANDO PATTERN BASEADO NA ANÁLISE ---")
+    analysis_pattern = r'(\d+)\s+([A-Z0-9\s\-]+?)\s+-->\s+(.+?)\s+UN\s+(\d+)\s+([\d,\.]+)\s+([\d,\.]+)'
+    
+    matches = []
+    for line in item_lines:
+        match = re.search(analysis_pattern, line)
+        if match:
+            matches.append(match.groups())
+            print(f"✅ MATCH: {match.groups()}")
+        else:
+            print(f"❌ NO MATCH: {line}")
+    
+    print(f"\nTotal de matches: {len(matches)}/{len(item_lines)}")
 
 if __name__ == "__main__":
     # Path do PDF
-    pdf_path = "/Users/nycolasmancini/Documents/Orcamento - 27830 - Lukad - R$ 1810,00.pdf"
+    pdf_path = "/Users/nycolasmancini/Documents/Orcamento - 27729 - Cassia - R$ 944,00.pdf"
     
     if not Path(pdf_path).exists():
         print(f"❌ ERRO: Arquivo não encontrado: {pdf_path}")

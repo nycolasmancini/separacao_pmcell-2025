@@ -36,7 +36,7 @@ class PDFParser:
         'seller': r'Vendedor:\s*([^\n]+?)(?:\s*Validade\s*do\s*Orçamento|$)',
         'date': r'Data:\s*(\d{2}/\d{2}/\d{2})',
         'total_value': r'VALOR\s+A\s+PAGAR\s*R\$\s*([\d\.,]+)',
-        'items': r'(\d{5})\s*/\s*([^/\n]+)\s*-->\s*([^/\n]+)\s*/\s*UN\s*/\s*(\d+)\s*/\s*([\d,\.]+)\s*/\s*([\d,\.]+)'
+        'items': r'(\d+)\s*[\/\s]+([A-Z0-9\s\-]+?)\s*-->\s*(.+?)\s*[\/\s]+UN\s*[\/\s]+(\d+)\s*[\/\s]+([\d,\.]+)\s*[\/\s]+([\d,\.]+)'
     }
     
     def extract(self, pdf_path: Path) -> Dict[str, Any]:
@@ -139,10 +139,15 @@ class PDFParser:
         pattern = self.PATTERNS['items']
         
         for match in re.finditer(pattern, text, re.IGNORECASE | re.MULTILINE):
+            # Combina modelo (reference) + descrição (name) em um único nome
+            product_reference = match.group(2).strip()
+            product_description = match.group(3).strip()
+            combined_name = f"{product_reference} - {product_description}"
+            
             item = {
                 'product_code': match.group(1).strip(),
-                'product_reference': match.group(2).strip(),
-                'product_name': match.group(3).strip(),
+                'product_reference': product_reference,
+                'product_name': combined_name,
                 'quantity': int(match.group(4)),
                 'unit_price': self._parse_money_value(match.group(5)),
                 'total_price': self._parse_money_value(match.group(6))

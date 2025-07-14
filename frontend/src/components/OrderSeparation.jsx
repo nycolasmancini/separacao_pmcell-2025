@@ -51,8 +51,28 @@ export default function OrderSeparation() {
     const notSentCount = items.filter(item => item.not_sent).length;
     const processedCount = separatedCount + notSentCount;
     
+    // Debug logging
+    console.log('🔍 canCompleteOrder Debug:', {
+      orderId: order.id,
+      progressPercentage: order.progress_percentage,
+      separatedCount,
+      notSentCount,
+      processedCount,
+      itemsCount: order.items_count,
+      isComplete: processedCount === order.items_count,
+      alternativeCheck: order.progress_percentage >= 100,
+      itemsState: items.map(item => ({
+        id: item.id,
+        name: item.product_name,
+        separated: item.separated,
+        not_sent: item.not_sent,
+        sent_to_purchase: item.sent_to_purchase
+      }))
+    });
+    
     // Pode completar APENAS quando TODOS os itens foram processados (100%)
-    return processedCount === order.items_count;
+    // Usar também progress_percentage como fallback
+    return processedCount === order.items_count || order.progress_percentage >= 100;
   };
 
   // Função para lidar com a conclusão do pedido

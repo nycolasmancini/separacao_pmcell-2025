@@ -7,7 +7,7 @@ help:
 	@echo "  make dev          - Start development servers"
 	@echo "  make test         - Run all tests"
 	@echo "  make test-backend - Run backend tests only"
-	@echo "  make test-frontend- Run frontend tests only"
+	@echo "  make test-frontend - Run frontend tests only"
 	@echo "  make lint         - Run linters"
 	@echo "  make clean        - Clean temporary files"
 	@echo "  make build        - Build for production"

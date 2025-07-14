@@ -233,7 +233,7 @@ class TestPDFParserPatterns:
         assert len(items) == 1
         assert items[0]['product_code'] == "001"
         assert items[0]['product_reference'] == "REF-123"
-        assert items[0]['product_name'] == "PRODUTO TESTE"
+        assert items[0]['product_name'] == "REF-123 - PRODUTO TESTE"
         assert items[0]['quantity'] == 10
         assert items[0]['unit_price'] == 50.00
         assert items[0]['total_price'] == 500.00

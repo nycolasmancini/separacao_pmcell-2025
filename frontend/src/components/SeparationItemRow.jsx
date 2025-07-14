@@ -16,7 +16,13 @@ export default function SeparationItemRow({ item, index, onUpdate, disabled = fa
     
     setIsUpdating(true);
     try {
-      await onUpdate({ separated: !item.separated });
+      // Se o item está sendo marcado como separado E está em compras,
+      // remove das compras e marca como separado
+      if (!item.separated && item.sent_to_purchase) {
+        await onUpdate({ separated: true, sent_to_purchase: false });
+      } else {
+        await onUpdate({ separated: !item.separated });
+      }
     } catch (error) {
       console.error('Error toggling separated status:', error);
       // The error is already handled by the parent component and shows a toast
@@ -71,12 +77,6 @@ export default function SeparationItemRow({ item, index, onUpdate, disabled = fa
     }
   };
 
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
 
   const formatDateTime = (dateString) => {
     if (!dateString) return null;
@@ -187,17 +187,16 @@ export default function SeparationItemRow({ item, index, onUpdate, disabled = fa
         </div>
 
         {/* Informações do produto */}
-        <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-6 gap-4">
+        <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Código */}
           <div className="md:col-span-1">
             <p className={`text-sm font-medium truncate ${itemStyling.textColor || 'text-gray-900'}`} title={item.product_code}>
               {item.product_code}
             </p>
-            <p className={`text-xs truncate ${itemStyling.textColor ? 'text-red-500' : 'text-gray-500'}`}>{item.product_reference}</p>
           </div>
 
-          {/* Nome do produto */}
-          <div className="md:col-span-2">
+          {/* Nome do produto (modelo + descrição) */}
+          <div className="md:col-span-1">
             <p className={`text-sm font-medium ${itemStyling.textColor || 'text-gray-900'}`} title={item.product_name}>
               {item.product_name}
             </p>
@@ -209,17 +208,6 @@ export default function SeparationItemRow({ item, index, onUpdate, disabled = fa
               <span className="font-medium">{item.quantity}</span>
               <span className={`ml-1 ${itemStyling.textColor ? 'text-red-500' : 'text-gray-500'}`}>UN</span>
             </p>
-          </div>
-
-          {/* Preços */}
-          <div className="md:col-span-1">
-            <p className={`text-sm ${itemStyling.textColor || 'text-gray-900'}`}>{formatCurrency(item.unit_price)}</p>
-            <p className={`text-xs ${itemStyling.textColor ? 'text-red-500' : 'text-gray-500'}`}>Unitário</p>
-          </div>
-
-          <div className="md:col-span-1">
-            <p className={`text-sm font-medium ${itemStyling.textColor || 'text-gray-900'}`}>{formatCurrency(item.total_price)}</p>
-            <p className={`text-xs ${itemStyling.textColor ? 'text-red-500' : 'text-gray-500'}`}>Total</p>
           </div>
         </div>
 

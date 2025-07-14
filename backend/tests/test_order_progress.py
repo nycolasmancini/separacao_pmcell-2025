@@ -115,6 +115,66 @@ def test_order_progress_percentage_with_purchase_items():
     assert abs(order.progress_percentage - expected) < 0.01
 
 
+def test_order_progress_percentage_with_not_sent_items():
+    """Test progress percentage with items marked as not sent."""
+    order = Order(
+        order_number="12345",
+        client_name="Test Client",
+        seller_name="Test Seller",
+        order_date=datetime.utcnow(),
+        total_value=100.0,
+        items_count=4
+    )
+    
+    # Add items
+    item1 = OrderItem(
+        product_code="001",
+        product_name="Item 1",
+        quantity=1,
+        unit_price=10.0,
+        total_price=10.0,
+        is_separated=True,
+        sent_to_purchase=False,
+        not_sent=False
+    )
+    item2 = OrderItem(
+        product_code="002",
+        product_name="Item 2",
+        quantity=1,
+        unit_price=20.0,
+        total_price=20.0,
+        is_separated=False,
+        sent_to_purchase=False,
+        not_sent=True  # Not sent items should count as progress
+    )
+    item3 = OrderItem(
+        product_code="003",
+        product_name="Item 3",
+        quantity=1,
+        unit_price=30.0,
+        total_price=30.0,
+        is_separated=False,
+        sent_to_purchase=True,
+        not_sent=False  # In purchase, should NOT count
+    )
+    item4 = OrderItem(
+        product_code="004",
+        product_name="Item 4",
+        quantity=1,
+        unit_price=40.0,
+        total_price=40.0,
+        is_separated=False,
+        sent_to_purchase=False,
+        not_sent=False  # Pending, should NOT count
+    )
+    
+    order.items = [item1, item2, item3, item4]
+    
+    # 1 separated + 1 not_sent = 2 of 4 items = 50%
+    expected = (2 / 4) * 100
+    assert order.progress_percentage == expected
+
+
 def test_order_progress_percentage_mixed_items():
     """Test progress percentage with both separated and purchase items."""
     order = Order(
@@ -300,6 +360,55 @@ def test_order_is_complete_all_separated():
     
     order.items = [item1, item2, item3]
     
+    assert order.is_complete
+
+
+def test_order_is_complete_with_not_sent_items():
+    """Test is_complete when items are separated and not sent."""
+    order = Order(
+        order_number="12345",
+        client_name="Test Client",
+        seller_name="Test Seller",
+        order_date=datetime.utcnow(),
+        total_value=100.0,
+        items_count=3
+    )
+    
+    # Add items
+    item1 = OrderItem(
+        product_code="001",
+        product_name="Item 1",
+        quantity=1,
+        unit_price=30.0,
+        total_price=30.0,
+        is_separated=True,
+        sent_to_purchase=False,
+        not_sent=False
+    )
+    item2 = OrderItem(
+        product_code="002",
+        product_name="Item 2",
+        quantity=1,
+        unit_price=35.0,
+        total_price=35.0,
+        is_separated=False,
+        sent_to_purchase=False,
+        not_sent=True  # Not sent should count as processed
+    )
+    item3 = OrderItem(
+        product_code="003",
+        product_name="Item 3",
+        quantity=1,
+        unit_price=35.0,
+        total_price=35.0,
+        is_separated=False,
+        sent_to_purchase=False,
+        not_sent=True  # Not sent should count as processed
+    )
+    
+    order.items = [item1, item2, item3]
+    
+    # 1 separated + 2 not_sent = 3 of 3 items = complete
     assert order.is_complete
 
 

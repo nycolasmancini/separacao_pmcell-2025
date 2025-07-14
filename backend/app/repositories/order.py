@@ -161,6 +161,13 @@ class OrderRepository(BaseRepository[Order]):
         items_in_purchase = sum(1 for item in order.items if item.sent_to_purchase)
         items_not_sent = sum(1 for item in order.items if item.not_sent)
         
+        # Debug logging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"🔍 update_progress Debug for order {order_id}: "
+                   f"items_separated={items_separated}, items_in_purchase={items_in_purchase}, "
+                   f"items_not_sent={items_not_sent}, items_count={order.items_count}")
+        
         # Atualizar contadores
         order.items_separated = items_separated
         order.items_in_purchase = items_in_purchase
@@ -168,8 +175,14 @@ class OrderRepository(BaseRepository[Order]):
         
         # Atualizar status se necessário
         # Verificar se está completo sem usar a propriedade is_complete (evita lazy loading)
-        # Apenas itens separados contam como "completados"
-        is_complete = items_separated == order.items_count and order.items_count > 0
+        # Itens separados E não enviados contam como "completados" (alinhado com o frontend)
+        processed_items = items_separated + items_not_sent
+        is_complete = processed_items == order.items_count and order.items_count > 0
+        
+        logger.info(f"🔍 update_progress Complete check for order {order_id}: "
+                   f"processed_items={processed_items}, items_count={order.items_count}, "
+                   f"is_complete={is_complete}, progress_percentage={order.progress_percentage}")
+        
         if is_complete:
             order.status = OrderStatus.COMPLETED
             order.completed_at = datetime.utcnow()

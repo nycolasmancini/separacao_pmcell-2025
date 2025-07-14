@@ -6,6 +6,61 @@ from typing import List, Optional
 from pydantic import BaseModel, Field, validator
 
 
+def normalize_logistics_type(logistics_type: str) -> str:
+    """
+    Normaliza o tipo de logística para o formato aceito pelo backend.
+    
+    Args:
+        logistics_type: Tipo de logística (display ou normalizado)
+        
+    Returns:
+        Tipo normalizado em lowercase com underscores
+    """
+    if not logistics_type:
+        return logistics_type
+    
+    # Mapeamento de valores de display para valores normalizados
+    logistics_mapping = {
+        'lalamove': 'lalamove',
+        'correios': 'correios', 
+        'melhor envio': 'melhor_envio',
+        'retirada': 'retirada',
+        'entrega': 'entrega',
+        'cliente na loja': 'cliente_na_loja',
+        'ônibus': 'onibus',
+        'onibus': 'onibus',  # Fallback sem acento
+        # Valores já normalizados
+        'melhor_envio': 'melhor_envio',
+        'cliente_na_loja': 'cliente_na_loja'
+    }
+    
+    normalized = logistics_type.lower().strip()
+    return logistics_mapping.get(normalized, normalized)
+
+
+def normalize_package_type(package_type: str) -> str:
+    """
+    Normaliza o tipo de embalagem para o formato aceito pelo backend.
+    
+    Args:
+        package_type: Tipo de embalagem (display ou normalizado)
+        
+    Returns:
+        Tipo normalizado em lowercase
+    """
+    if not package_type:
+        return package_type
+    
+    # Mapeamento de valores de display para valores normalizados
+    package_mapping = {
+        'caixa': 'caixa',
+        'sacola': 'sacola'
+    }
+    
+    normalized = package_type.lower().strip()
+    return package_mapping.get(normalized, normalized)
+
+
 class PDFItemCreate(BaseModel):
     """Schema para item extraído do PDF."""
     product_code: str = Field(..., description="Código do produto")
@@ -69,22 +124,26 @@ class PDFUploadRequest(BaseModel):
     def validate_logistics_type(cls, v):
         """Valida tipo de logística."""
         if v is not None:
+            normalized = normalize_logistics_type(v)
             allowed_types = [
                 'lalamove', 'correios', 'melhor_envio', 
                 'retirada', 'entrega', 'cliente_na_loja', 'onibus'
             ]
-            if v.lower() not in allowed_types:
+            if normalized not in allowed_types:
                 raise ValueError(f"Invalid logistics type. Allowed: {allowed_types}")
-        return v.lower() if v else v
+            return normalized
+        return v
     
     @validator('package_type')
     def validate_package_type(cls, v):
         """Valida tipo de embalagem."""
         if v is not None:
+            normalized = normalize_package_type(v)
             allowed_types = ['caixa', 'sacola']
-            if v.lower() not in allowed_types:
+            if normalized not in allowed_types:
                 raise ValueError(f"Invalid package type. Allowed: {allowed_types}")
-        return v.lower() if v else v
+            return normalized
+        return v
 
 
 class PDFPreviewResponse(BaseModel):
@@ -132,22 +191,26 @@ class OrderCreateFromPDF(BaseModel):
     def validate_logistics_type(cls, v):
         """Valida tipo de logística."""
         if v is not None:
+            normalized = normalize_logistics_type(v)
             allowed_types = [
                 'lalamove', 'correios', 'melhor_envio', 
                 'retirada', 'entrega', 'cliente_na_loja', 'onibus'
             ]
-            if v.lower() not in allowed_types:
+            if normalized not in allowed_types:
                 raise ValueError(f"Invalid logistics type. Allowed: {allowed_types}")
-        return v.lower() if v else v
+            return normalized
+        return v
     
     @validator('package_type')
     def validate_package_type(cls, v):
         """Valida tipo de embalagem."""
         if v is not None:
+            normalized = normalize_package_type(v)
             allowed_types = ['caixa', 'sacola']
-            if v.lower() not in allowed_types:
+            if normalized not in allowed_types:
                 raise ValueError(f"Invalid package type. Allowed: {allowed_types}")
-        return v.lower() if v else v
+            return normalized
+        return v
 
 
 class OrderResponse(BaseModel):
