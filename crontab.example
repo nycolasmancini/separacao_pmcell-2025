@@ -1,0 +1,15 @@
+# Example crontab configuration for PMCELL backups
+# Edit with: crontab -e
+# List with: crontab -l
+
+# Daily backup at 2 AM
+0 2 * * * /path/to/pmcell-separacao/scripts/backup.sh
+
+# Weekly cleanup of old backups (Sundays at 3 AM)
+0 3 * * 0 /path/to/pmcell-separacao/scripts/backup.sh --cleanup
+
+# Example: Backup every 6 hours
+# 0 */6 * * * /path/to/pmcell-separacao/scripts/backup.sh
+
+# Example: Backup only on weekdays at 1 AM
+# 0 1 * * 1-5 /path/to/pmcell-separacao/scripts/backup.sh

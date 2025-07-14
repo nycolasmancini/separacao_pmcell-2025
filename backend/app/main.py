@@ -6,6 +6,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.config import get_settings
 from app.api.v1 import api_router
 from app.core.database import init_db
+from app.core.security_middleware import (
+    RateLimitMiddleware, 
+    SecurityHeadersMiddleware, 
+    RequestLoggingMiddleware,
+    validate_security_config
+)
+from app.core.cache import close_redis_client
 # Import all models to ensure they're registered with Base
 from app.models import User, Order, OrderItem, OrderAccess, PurchaseItem
 
@@ -108,7 +115,8 @@ class CORSErrorMiddleware(BaseHTTPMiddleware):
             )
         
         # Always add CORS headers
-        if origin and origin in settings.BACKEND_CORS_ORIGINS:
+        allowed_origins = settings.get_cors_origins()
+        if origin and origin in allowed_origins:
             response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Access-Control-Allow-Credentials"] = "true"
             response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
@@ -123,19 +131,38 @@ async def startup_event():
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Database URL: {settings.DATABASE_URL}")
     
+    # Validate security configuration
+    validate_security_config()
+    
     # Log SECRET_KEY info for debugging (first 10 chars only)
     logger.info(f"SECRET_KEY configured: {settings.SECRET_KEY[:20]}...")
     
     await init_db()
     logger.info("Application startup completed")
 
-# Add custom CORS error middleware first
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown."""
+    logger.info("Shutting down application...")
+    await close_redis_client()
+    logger.info("Application shutdown completed")
+
+# Add security middleware
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
+
+# Add rate limiting in production
+if settings.ENVIRONMENT == "production":
+    app.add_middleware(RateLimitMiddleware, calls=100, period=3600)
+
+# Add custom CORS error middleware
 app.add_middleware(CORSErrorMiddleware)
 
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origins=settings.get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

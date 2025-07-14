@@ -1,0 +1,185 @@
+name: Security Scan
+
+on:
+  schedule:
+    # Run security scans daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    name: Secret Detection
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Run GitLeaks
+      uses: gitleaks/gitleaks-action@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  dependency-scan:
+    runs-on: ubuntu-latest
+    name: Dependency Vulnerability Scan
+    
+    strategy:
+      matrix:
+        component: [backend, frontend]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Python Safety Check
+      if: matrix.component == 'backend'
+      run: |
+        cd backend
+        pip install safety
+        safety check -r requirements.txt --json --output safety-report.json || true
+
+    - name: Run npm audit
+      if: matrix.component == 'frontend'
+      run: |
+        cd frontend
+        npm audit --audit-level moderate --json > npm-audit.json || true
+
+    - name: Upload vulnerability reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: vulnerability-reports-${{ matrix.component }}
+        path: |
+          backend/safety-report.json
+          frontend/npm-audit.json
+
+  container-scan:
+    runs-on: ubuntu-latest
+    name: Container Security Scan
+    
+    strategy:
+      matrix:
+        component: [backend, frontend]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Build Docker image
+      run: |
+        docker build -t ${{ matrix.component }}:latest ./${{ matrix.component }}
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: '${{ matrix.component }}:latest'
+        format: 'sarif'
+        output: 'trivy-${{ matrix.component }}.sarif'
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-${{ matrix.component }}.sarif'
+        category: 'trivy-${{ matrix.component }}'
+
+  sast-scan:
+    runs-on: ubuntu-latest
+    name: Static Application Security Testing
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: python, javascript
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v2
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+
+  security-policy-check:
+    runs-on: ubuntu-latest
+    name: Security Policy Compliance
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check for security policy files
+      run: |
+        echo "Checking for security policy files..."
+        
+        # Check for SECURITY.md
+        if [ ! -f "SECURITY.md" ]; then
+          echo "❌ SECURITY.md not found"
+          echo "security_policy=false" >> $GITHUB_ENV
+        else
+          echo "✅ SECURITY.md found"
+        fi
+        
+        # Check for .gitignore patterns
+        if grep -q "\.env" .gitignore && grep -q "\.secret" .gitignore; then
+          echo "✅ .gitignore has security patterns"
+        else
+          echo "❌ .gitignore missing security patterns"
+          echo "gitignore_security=false" >> $GITHUB_ENV
+        fi
+        
+        # Check for exposed secrets in code
+        if grep -r -i "password\s*=" . --include="*.py" --include="*.js" --include="*.jsx" --exclude-dir=node_modules --exclude-dir=.git; then
+          echo "❌ Potential hardcoded secrets found"
+          echo "hardcoded_secrets=true" >> $GITHUB_ENV
+        else
+          echo "✅ No hardcoded secrets detected"
+        fi
+
+    - name: Security recommendations
+      run: |
+        echo "## 🔒 Security Recommendations" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${security_policy:-true}" = "false" ]; then
+          echo "- Create a SECURITY.md file with vulnerability reporting guidelines" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ "${gitignore_security:-true}" = "false" ]; then
+          echo "- Add security patterns to .gitignore (.env*, *.key, *.pem)" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ "${hardcoded_secrets:-false}" = "true" ]; then
+          echo "- Remove hardcoded secrets and use environment variables" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "- Regularly update dependencies" >> $GITHUB_STEP_SUMMARY
+        echo "- Use HTTPS for all external communications" >> $GITHUB_STEP_SUMMARY
+        echo "- Implement proper input validation" >> $GITHUB_STEP_SUMMARY
+        echo "- Use secure session management" >> $GITHUB_STEP_SUMMARY
+
+  security-summary:
+    runs-on: ubuntu-latest
+    needs: [secret-scan, dependency-scan, container-scan, sast-scan, security-policy-check]
+    if: always()
+    
+    steps:
+    - name: Create security summary
+      run: |
+        echo "## 🛡️ Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Secret Detection | ${{ needs.secret-scan.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Dependency Scan | ${{ needs.dependency-scan.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Container Scan | ${{ needs.container-scan.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| SAST Analysis | ${{ needs.sast-scan.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Policy Check | ${{ needs.security-policy-check.result == 'success' && '✅ Pass' || '❌ Fail' }} |" >> $GITHUB_STEP_SUMMARY

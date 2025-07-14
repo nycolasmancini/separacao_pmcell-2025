@@ -10,7 +10,12 @@ sqlalchemy==2.0.25
 alembic==1.13.1
 psycopg2-binary==2.9.9
 aiosqlite==0.19.0
+asyncpg==0.29.0
 greenlet==3.0.3
+
+# Performance & Caching
+redis==5.0.1
+aioredis==2.0.1
 
 # PDF Processing
 pdfplumber==0.10.3

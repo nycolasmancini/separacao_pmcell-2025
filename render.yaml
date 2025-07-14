@@ -1,0 +1,51 @@
+databases:
+  - name: pmcell-db
+    databaseName: pmcell_db
+    user: pmcell_user
+    plan: free
+
+services:
+  # Backend API Service
+  - type: web
+    name: pmcell-backend
+    env: docker
+    dockerfilePath: ./backend/Dockerfile
+    plan: free
+    buildCommand: echo "Building PMCELL Backend"
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pmcell-db
+          property: connectionString
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "False"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: LOG_FORMAT
+        value: json
+      - key: HOST
+        value: "0.0.0.0"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+
+  # Frontend Service  
+  - type: web
+    name: pmcell-frontend
+    env: docker
+    dockerfilePath: ./frontend/Dockerfile
+    plan: free
+    buildCommand: echo "Building PMCELL Frontend"
+    staticPublishPath: /usr/share/nginx/html
+    envVars:
+      - key: VITE_API_URL
+        value: https://pmcell-backend.onrender.com/api/v1
+      - key: NODE_ENV
+        value: production
