@@ -497,6 +497,7 @@ async def get_order_detail(
                     total_price=item.total_price,
                     separated=item.is_separated,
                     sent_to_purchase=item.sent_to_purchase,
+                    not_sent=item.not_sent,
                     separated_at=item.separated_at
                 )
                 for item in items
