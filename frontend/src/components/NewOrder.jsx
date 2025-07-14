@@ -18,6 +18,7 @@ function NewOrder() {
   });
   const [uploadedFile, setUploadedFile] = useState(null);
   const [extractedData, setExtractedData] = useState(null);
+  const [validationInfo, setValidationInfo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -68,9 +69,10 @@ function NewOrder() {
         },
       });
       
-      // The API returns a PDFPreviewResponse with success, message, data, errors
+      // The API returns a PDFPreviewResponse with success, message, data, errors, validation_info
       if (response.data.success && response.data.data) {
         setExtractedData(response.data.data);
+        setValidationInfo(response.data.validation_info);
         addToast(response.data.message || 'PDF processado com sucesso!', 'success');
       } else {
         throw new Error(response.data.message || 'Erro ao processar PDF');
@@ -85,6 +87,7 @@ function NewOrder() {
       console.error('Error uploading PDF:', error);
       setUploadedFile(null);
       setExtractedData(null);
+      setValidationInfo(null);
       
       // Handle backend validation errors
       let errorMessage = 'Erro ao processar PDF';
@@ -494,6 +497,81 @@ function NewOrder() {
                   </div>
                 </div>
                 
+                {/* Validation Summary */}
+                {validationInfo && (
+                  <div className={`border-t pt-4 ${validationInfo.totals_match ? 'bg-green-50' : 'bg-red-50'} p-4 rounded-lg border`}>
+                    <h3 className="text-lg font-medium mb-3 flex items-center">
+                      {validationInfo.totals_match ? (
+                        <span className="text-green-600">✅ Validação Aprovada</span>
+                      ) : (
+                        <span className="text-red-600">❌ Atenção: Divergência Encontrada</span>
+                      )}
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <label className="block font-medium text-gray-700 mb-1">
+                          Valor Calculado (Soma dos Itens)
+                        </label>
+                        <div className="text-lg font-bold text-blue-600">
+                          R$ {validationInfo.calculated_total?.toFixed(2)}
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="block font-medium text-gray-700 mb-1">
+                          Valor do PDF
+                        </label>
+                        <div className="text-lg font-bold text-gray-800">
+                          R$ {validationInfo.pdf_total?.toFixed(2)}
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="block font-medium text-gray-700 mb-1">
+                          Diferença
+                        </label>
+                        <div className={`text-lg font-bold ${validationInfo.totals_match ? 'text-green-600' : 'text-red-600'}`}>
+                          R$ {validationInfo.difference?.toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 text-sm">
+                      <div>
+                        <label className="block font-medium text-gray-700 mb-1">
+                          Quantidade de Itens (Total)
+                        </label>
+                        <div className="text-lg font-bold text-gray-800">
+                          {validationInfo.items_count}
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="block font-medium text-gray-700 mb-1">
+                          Quantidade de Modelos (Linhas)
+                        </label>
+                        <div className="text-lg font-bold text-gray-800">
+                          {validationInfo.models_count}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {!validationInfo.totals_match && (
+                      <div className="mt-4 p-3 bg-red-100 border border-red-300 rounded-lg">
+                        <p className="text-red-800 font-medium">
+                          ⚠️ Atenção: Os valores não conferem! Verifique se:
+                        </p>
+                        <ul className="text-red-700 text-sm mt-2 list-disc list-inside">
+                          <li>Todos os itens foram extraídos corretamente</li>
+                          <li>Não há descontos ou taxas não capturadas</li>
+                          <li>Os cálculos no PDF estão corretos</li>
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
                 {/* Configuration Summary */}
                 <div className="border-t pt-4">
                   <h3 className="text-lg font-medium text-gray-900 mb-3">Configurações</h3>
@@ -585,10 +663,30 @@ function NewOrder() {
                 </button>
                 
                 <button
-                  onClick={() => setStep(3)}
-                  className="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                  onClick={() => {
+                    if (validationInfo && !validationInfo.totals_match) {
+                      const confirmed = window.confirm(
+                        `ATENÇÃO: Há uma divergência de R$ ${validationInfo.difference?.toFixed(2)} entre o valor calculado e o valor do PDF.\n\n` +
+                        `Deseja prosseguir mesmo assim?\n\n` +
+                        `⚠️ Alguns itens podem não ser separados corretamente!`
+                      );
+                      if (!confirmed) return;
+                    }
+                    setStep(3);
+                  }}
+                  className={`px-6 py-3 rounded-lg transition-colors ${
+                    validationInfo && !validationInfo.totals_match
+                      ? 'bg-red-600 hover:bg-red-700 text-white border-2 border-red-800'
+                      : 'bg-orange-600 hover:bg-orange-700 text-white'
+                  }`}
                 >
-                  Próximo: Confirmar
+                  {validationInfo && !validationInfo.totals_match ? (
+                    <span className="flex items-center">
+                      ⚠️ Confirmar com Divergência
+                    </span>
+                  ) : (
+                    'Próximo: Confirmar'
+                  )}
                 </button>
               </div>
             </div>

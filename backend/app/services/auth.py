@@ -30,6 +30,11 @@ class AuthService:
                 detail="PIN incorreto"
             )
         
+        # Atualizar último login
+        from datetime import datetime
+        user.last_login = datetime.utcnow()
+        await self.db.commit()
+        
         # Cria token JWT
         access_token = create_access_token(subject=user.id)
         
@@ -40,7 +45,8 @@ class AuthService:
                 "name": user.name,
                 "role": user.role,
                 "photo_url": user.photo_url,
-                "created_at": user.created_at
+                "created_at": user.created_at,
+                "last_login": user.last_login
             }
         )
     
@@ -104,7 +110,8 @@ class AuthService:
                     name=user.name,
                     role=user.role,
                     photo_url=user.photo_url,
-                    created_at=user.created_at
+                    created_at=user.created_at,
+                    last_login=user.last_login
                 ),
                 order_id=order.id,
                 message="Acesso ao pedido autorizado"

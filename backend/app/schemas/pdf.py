@@ -80,9 +80,12 @@ class PDFItemCreate(BaseModel):
         """Valida se o preço total está correto."""
         if 'quantity' in values and 'unit_price' in values:
             expected_total = values['quantity'] * values['unit_price']
-            # Permite pequena diferença por arredondamento
+            # Validação rigorosa - deve ser exato (tolerância de apenas R$ 0.01 para arredondamento)
             if abs(v - expected_total) > 0.01:
-                raise ValueError(f"Total price mismatch: expected {expected_total}, got {v}")
+                raise ValueError(
+                    f"Total price mismatch: expected {expected_total:.2f}, got {v:.2f}. "
+                    f"Difference: {abs(v - expected_total):.2f}"
+                )
         return v
 
 
@@ -101,10 +104,11 @@ class PDFExtractedData(BaseModel):
         if 'total_value' in values and v:
             items_total = sum(item.total_price for item in v)
             expected_total = values['total_value']
-            # Permite pequena diferença por arredondamento
+            # Validação rigorosa - deve ser exato (tolerância de apenas R$ 0.01 para arredondamento)
             if abs(items_total - expected_total) > 0.01:
                 raise ValueError(
-                    f"Items total ({items_total}) doesn't match order total ({expected_total})"
+                    f"Items total ({items_total:.2f}) doesn't match order total ({expected_total:.2f}). "
+                    f"Difference: {abs(items_total - expected_total):.2f}"
                 )
         return v
     
@@ -112,6 +116,16 @@ class PDFExtractedData(BaseModel):
     def items_count(self) -> int:
         """Retorna quantidade total de itens (soma das quantidades)."""
         return sum(item.quantity for item in self.items)
+    
+    @property
+    def models_count(self) -> int:
+        """Retorna quantidade de modelos diferentes (quantidade de linhas)."""
+        return len(self.items)
+    
+    @property
+    def calculated_total(self) -> float:
+        """Retorna valor total calculado (soma dos totais dos itens)."""
+        return sum(item.total_price for item in self.items)
 
 
 class PDFUploadRequest(BaseModel):
@@ -152,6 +166,23 @@ class PDFPreviewResponse(BaseModel):
     message: str = Field(..., description="Mensagem de status")
     data: Optional[PDFExtractedData] = Field(None, description="Dados extraídos")
     errors: Optional[List[str]] = Field(None, description="Lista de erros encontrados")
+    
+    # Informações para validação do vendedor
+    validation_info: Optional[dict] = Field(None, description="Informações para validação")
+    
+    @property
+    def summary(self) -> Optional[dict]:
+        """Retorna resumo para validação do vendedor."""
+        if not self.data:
+            return None
+        
+        return {
+            "calculated_total": self.data.calculated_total,
+            "pdf_total": self.data.total_value,
+            "items_count": self.data.items_count,
+            "models_count": self.data.models_count,
+            "totals_match": abs(self.data.calculated_total - self.data.total_value) <= 0.01
+        }
     
     class Config:
         json_schema_extra = {

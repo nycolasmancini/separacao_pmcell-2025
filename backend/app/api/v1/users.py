@@ -7,23 +7,13 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_async_session, get_current_user
+from app.core.deps import get_async_session, require_admin
 from app.models.user import User, UserRole
 from app.repositories.user import UserRepository
 from app.schemas.auth import UserCreate, UserUpdate, UserResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-
-def require_admin(current_user: User = Depends(get_current_user)):
-    """Dependency para exigir role de admin."""
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=403,
-            detail="Acesso negado. Apenas administradores podem acessar esta funcionalidade."
-        )
-    return current_user
 
 
 @router.get("", response_model=List[UserResponse])
@@ -93,7 +83,7 @@ async def create_user(
             )
         
         # Criar usuário
-        user = await user_repo.create_user(
+        user = await user_repo.create(
             name=user_data.name,
             pin=user_data.pin,
             role=user_data.role

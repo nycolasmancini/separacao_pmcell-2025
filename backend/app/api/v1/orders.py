@@ -99,11 +99,22 @@ async def upload_pdf(
             f"order {pdf_data.order_number}, {len(pdf_data.items)} items"
         )
         
+        # Criar informações de validação para o vendedor
+        validation_info = {
+            "calculated_total": pdf_data.calculated_total,
+            "pdf_total": pdf_data.total_value,
+            "items_count": pdf_data.items_count,
+            "models_count": pdf_data.models_count,
+            "totals_match": abs(pdf_data.calculated_total - pdf_data.total_value) <= 0.01,
+            "difference": abs(pdf_data.calculated_total - pdf_data.total_value)
+        }
+        
         return PDFPreviewResponse(
             success=True,
             message="PDF processado com sucesso",
             data=pdf_data,
-            errors=None
+            errors=None,
+            validation_info=validation_info
         )
         
     except PDFParseError as e:

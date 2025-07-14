@@ -36,6 +36,7 @@ class User(Base):
     photo_url = Column(String(500), nullable=True)  # URL para foto do usuário
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_login = Column(DateTime, nullable=True)  # Último login do usuário
     
     def __init__(self, pin=None, **kwargs):
         """Inicializa o usuário validando campos obrigatórios."""
