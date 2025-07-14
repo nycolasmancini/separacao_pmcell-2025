@@ -258,10 +258,17 @@ class ConnectionManager:
         for user_id in self.users_in_orders[order_id]:
             if user_id in self.connection_metadata:
                 metadata = self.connection_metadata[user_id]
+                connected_at = metadata["connected_at"]
+                # Handle both datetime objects and string dates
+                if hasattr(connected_at, 'isoformat'):
+                    connected_at_str = connected_at.isoformat()
+                else:
+                    connected_at_str = str(connected_at)
+                
                 users.append({
                     "user_id": user_id,
                     "user_name": metadata["user_name"],
-                    "connected_at": metadata["connected_at"].isoformat()
+                    "connected_at": connected_at_str
                 })
         
         return users
@@ -283,6 +290,46 @@ class ConnectionManager:
             int: Número de pedidos ativos
         """
         return len(self.users_in_orders)
+
+    async def notify_order_access(self, order_id: int, user_info: dict):
+        """
+        Notifica sobre acesso de usuário a um pedido.
+        
+        Args:
+            order_id: ID do pedido
+            user_info: Informações do usuário que acessou
+        """
+        # Notificar todos os usuários conectados sobre o acesso
+        await self.broadcast_message(WebSocketMessage(
+            type="order_access",
+            data={
+                "order_id": order_id,
+                "user": user_info,
+                "active_users": self.get_users_in_order(order_id),
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        ))
+        
+        logger.info(f"Notified order access: user {user_info.get('name')} accessing order {order_id}")
+
+    async def notify_presence_update(self, order_id: int):
+        """
+        Notifica sobre atualização de presença em um pedido.
+        
+        Args:
+            order_id: ID do pedido
+        """
+        active_users = self.get_users_in_order(order_id)
+        
+        await self.broadcast_message(WebSocketMessage(
+            type="presence_update",
+            data={
+                "order_id": order_id,
+                "active_users": active_users,
+                "user_count": len(active_users),
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        ))
 
 
 # Instância global do gerenciador

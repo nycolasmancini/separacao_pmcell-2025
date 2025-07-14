@@ -8,6 +8,7 @@ import StatusFilter from './StatusFilter';
 import OrderAccessLogin from './OrderAccessLogin';
 import { useToast } from './ToastContainer';
 import { useOrders } from '../hooks/useOrders';
+import { useOrderPresence } from '../hooks/useOrderPresence';
 import { ComponentErrorBoundary } from './ErrorBoundary';
 import { DashboardSkeleton } from './Skeleton';
 import { useResponsive } from '../hooks/useResponsive';
@@ -28,6 +29,13 @@ function Dashboard() {
   
   // Use real API data instead of mock data
   const { orders, loading, error, refetch, hasInitiallyLoaded } = useOrders();
+  
+  // Initialize presence tracking
+  const { 
+    isConnected: presenceConnected, 
+    getActiveUsersForOrder,
+    fetchActiveUsers 
+  } = useOrderPresence();
   
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -102,7 +110,7 @@ function Dashboard() {
     setIsOrderAccessModalOpen(true);
   };
 
-  const handleOrderAccessSuccess = (accessUser, order) => {
+  const handleOrderAccessSuccess = async (accessUser, order) => {
     console.log('Dashboard - Acesso ao pedido autorizado:', {
       orderId: order.id,
       orderNumber: order.order_number,
@@ -112,6 +120,13 @@ function Dashboard() {
 
     // Definir acesso ao pedido no estado global
     setOrderAccess(accessUser, order.id);
+    
+    // Buscar usuários ativos atualizados para este pedido
+    try {
+      await fetchActiveUsers(order.id);
+    } catch (error) {
+      console.warn('Failed to fetch active users after access:', error);
+    }
     
     // Navegar para a tela de separação
     navigate(`/orders/${order.id}/separation`);
@@ -175,9 +190,17 @@ function Dashboard() {
               <div className="text-right">
                 <p className="text-sm text-gray-600">Bem-vindo,</p>
                 <p className="font-medium text-gray-900">{user?.name}</p>
-                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800 mt-1">
-                  {user?.role}
-                </span>
+                <div className="flex items-center space-x-2 mt-1">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                    {user?.role}
+                  </span>
+                  <div className="flex items-center space-x-1">
+                    <div className={`h-2 w-2 rounded-full ${presenceConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className="text-xs text-gray-500">
+                      {presenceConnected ? 'Online' : 'Offline'}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

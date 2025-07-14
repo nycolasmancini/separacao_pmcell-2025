@@ -6,6 +6,7 @@ import Logo from './Logo';
 import { ButtonSpinner } from './LoadingSpinner';
 import { useResponsive } from '../hooks/useResponsive';
 import { loginAnimations } from '../utils/animations';
+import api from '../services/api';
 
 const PIN_LENGTH = 4;
 
@@ -54,23 +55,12 @@ function OrderAccessLogin({ isOpen, onClose, order, onSuccess }) {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:8000/api/v1/auth/order-access', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          order_id: order.id,
-          pin: pin
-        })
+      const response = await api.post('/auth/order-access', {
+        order_id: order.id,
+        pin: pin
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Erro na autenticação');
-      }
-
-      const data = await response.json();
+      const data = response.data;
       
       // Sucesso - chamar callback e fechar modal
       onSuccess(data.user, order);
@@ -78,7 +68,8 @@ function OrderAccessLogin({ isOpen, onClose, order, onSuccess }) {
       
     } catch (error) {
       console.error('Error in order access:', error);
-      setError(error.message || 'Erro na autenticação');
+      const errorMessage = error.response?.data?.detail || error.message || 'Erro de conexão';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

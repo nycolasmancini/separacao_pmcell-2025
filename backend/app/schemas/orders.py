@@ -146,7 +146,8 @@ class WebSocketMessage(BaseModel):
         "user_joined",
         "user_left",
         "order_completed",
-        "new_order"
+        "new_order",
+        "order_access"
     ] = Field(..., description="Tipo da mensagem")
     data: Dict[str, Any] = Field(..., description="Dados da mensagem")
     timestamp: datetime = Field(default_factory=datetime.now, description="Timestamp da mensagem")

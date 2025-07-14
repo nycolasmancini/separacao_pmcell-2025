@@ -1,5 +1,6 @@
 import { useState, memo } from 'react';
 import { useAuthStore } from '../store/authStore';
+import { useOrderPresenceStore } from '../store/orderPresenceStore';
 import UserAvatar from './UserAvatar';
 
 const OrderCard = memo(function OrderCard({ 
@@ -10,9 +11,48 @@ const OrderCard = memo(function OrderCard({
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const { orderAccessUser, currentOrderId } = useAuthStore();
+  const { getActiveUsersForOrder } = useOrderPresenceStore();
   
-  // Verificar se alguém está acessando este pedido
+  // Obter todos os usuários ativos deste pedido do store
+  const presenceUsers = getActiveUsersForOrder(order.id);
+  
+  // Verificar se o usuário atual está acessando este pedido
   const isCurrentlyAccessed = currentOrderId === order.id && orderAccessUser;
+  
+  // Combinar usuário atual (se estiver acessando) com outros usuários ativos
+  const allActiveUsers = [];
+  
+  // Adicionar usuário atual se estiver acessando
+  if (isCurrentlyAccessed && orderAccessUser) {
+    allActiveUsers.push({
+      ...orderAccessUser,
+      isCurrent: true
+    });
+  }
+  
+  // Adicionar outros usuários ativos do store (evitando duplicatas)
+  presenceUsers.forEach(user => {
+    const isDuplicate = allActiveUsers.some(existingUser => existingUser.id === user.id);
+    if (!isDuplicate) {
+      allActiveUsers.push({
+        ...user,
+        isCurrent: false
+      });
+    }
+  });
+  
+  // Também incluir activeUsers do props para compatibilidade (evitando duplicatas)
+  if (activeUsers && activeUsers.length > 0) {
+    activeUsers.forEach(user => {
+      const isDuplicate = allActiveUsers.some(existingUser => existingUser.id === user.id);
+      if (!isDuplicate) {
+        allActiveUsers.push({
+          ...user,
+          isCurrent: false
+        });
+      }
+    });
+  }
 
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -120,37 +160,36 @@ const OrderCard = memo(function OrderCard({
         </div>
       </div>
 
-      {/* Usuário acessando atualmente */}
-      {isCurrentlyAccessed && (
+      {/* Usuários ativos - mostrar todos os usuários acessando */}
+      {allActiveUsers.length > 0 && (
         <div className="flex items-center space-x-2">
-          <p className="text-xs text-gray-600">Acessando:</p>
-          <UserAvatar 
-            user={orderAccessUser} 
-            size="sm" 
-            showTooltip={true}
-          />
-          <p className="text-xs text-primary-600 font-medium">
-            {orderAccessUser.name}
+          <p className="text-xs text-gray-600">
+            Acessando ({allActiveUsers.length}):
           </p>
-        </div>
-      )}
-
-      {/* Usuários ativos (fotos circulares) - apenas se não há acesso atual */}
-      {!isCurrentlyAccessed && activeUsers && activeUsers.length > 0 && (
-        <div className="flex items-center space-x-2">
-          <p className="text-xs text-gray-600">Acessando:</p>
           <div className="flex -space-x-2">
-            {activeUsers.slice(0, 3).map((user, index) => (
-              <UserAvatar
-                key={user.id || index}
-                user={user}
-                size="sm"
-                showTooltip={true}
-              />
+            {allActiveUsers.slice(0, 4).map((user, index) => (
+              <div key={user.id || index} className="relative">
+                <UserAvatar
+                  user={user}
+                  size="sm"
+                  showTooltip={true}
+                  className={`${
+                    user.isCurrent 
+                      ? 'ring-2 ring-primary-500 ring-offset-2' 
+                      : ''
+                  }`}
+                />
+                {/* Indicador de usuário atual */}
+                {user.isCurrent && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary-500 rounded-full border-2 border-white">
+                    <div className="w-full h-full bg-primary-500 rounded-full animate-pulse"></div>
+                  </div>
+                )}
+              </div>
             ))}
-            {activeUsers.length > 3 && (
+            {allActiveUsers.length > 4 && (
               <div className="w-8 h-8 rounded-full bg-gray-400 border-2 border-white flex items-center justify-center text-white text-xs font-medium">
-                +{activeUsers.length - 3}
+                +{allActiveUsers.length - 4}
               </div>
             )}
           </div>
