@@ -1,0 +1,64 @@
+#!/usr/bin/expect -f
+
+set timeout 120
+spawn ssh root@177.153.64.105
+
+expect {
+    "password:" {
+        send "@Hexenwith556023\r"
+    }
+    "Are you sure you want to continue connecting" {
+        send "yes\r"
+        exp_continue
+    }
+}
+
+expect "# "
+send "cd /opt\r"
+
+expect "# "
+send "echo '=== VERIFICANDO CONTAINERS ==='\r"
+
+expect "# "
+send "docker ps -a\r"
+
+expect "# "
+send "echo '=== LOGS DO BACKEND ==='\r"
+
+expect "# "
+send "docker logs pmcell_backend_1 --tail 50\r"
+
+expect "# "
+send "echo '=== LOGS DO FRONTEND ==='\r"
+
+expect "# "
+send "docker logs pmcell_frontend_1 --tail 50 2>/dev/null || echo 'Frontend container not found'\r"
+
+expect "# "
+send "echo '=== VERIFICANDO VARIÁVEIS DE AMBIENTE ==='\r"
+
+expect "# "
+send "cat .env.prod\r"
+
+expect "# "
+send "echo '=== VERIFICANDO DOCKER COMPOSE ==='\r"
+
+expect "# "
+send "docker-compose -f docker-compose.prod.yml config\r"
+
+expect "# "
+send "echo '=== VERIFICANDO NETWORK ==='\r"
+
+expect "# "
+send "docker network ls\r"
+
+expect "# "
+send "echo '=== TESTANDO CONECTIVIDADE INTERNA ==='\r"
+
+expect "# "
+send "docker exec pmcell_backend_1 curl -f http://localhost:8000/health || echo 'Health check failed'\r"
+
+expect "# "
+send "exit\r"
+
+expect eof

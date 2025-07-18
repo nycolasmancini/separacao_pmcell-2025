@@ -1,0 +1,99 @@
+#!/usr/bin/expect -f
+
+set timeout 300
+spawn ssh root@177.153.64.105
+
+expect {
+    "password:" {
+        send "@Hexenwith556023\r"
+    }
+    "Are you sure you want to continue connecting" {
+        send "yes\r"
+        exp_continue
+    }
+}
+
+expect "# "
+send "cd /opt\r"
+
+expect "# "
+send "echo '=== STOPPING CONTAINERS ==='\r"
+
+expect "# "
+send "docker-compose -f docker-compose.prod.yml down\r"
+
+expect "# "
+send "echo '=== FIXING FRONTEND DOCKERFILE ==='\r"
+
+expect "# "
+send "cat > frontend/Dockerfile << 'EOF'\r"
+send "# Multi-stage build for production optimization\r"
+send "FROM node:18-alpine as builder\r"
+send "\r"
+send "# Set working directory\r"
+send "WORKDIR /app\r"
+send "\r"
+send "# Copy package files\r"
+send "COPY package*.json ./\r"
+send "\r"
+send "# Install ALL dependencies (including devDependencies for build)\r"
+send "RUN npm ci\r"
+send "\r"
+send "# Copy source code\r"
+send "COPY . .\r"
+send "\r"
+send "# Build the application\r"
+send "RUN npm run build\r"
+send "\r"
+send "# Production stage with Nginx\r"
+send "FROM nginx:alpine as production\r"
+send "\r"
+send "# Copy custom nginx configuration\r"
+send "COPY nginx.conf /etc/nginx/nginx.conf\r"
+send "\r"
+send "# Copy built application from builder stage\r"
+send "COPY --from=builder /app/dist /usr/share/nginx/html\r"
+send "\r"
+send "# Expose port 80\r"
+send "EXPOSE 80\r"
+send "\r"
+send "# Health check\r"
+send "HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \\\\\r"
+send "  CMD wget --quiet --tries=1 --spider http://localhost/ || exit 1\r"
+send "\r"
+send "# Start nginx\r"
+send "CMD \[\"nginx\", \"-g\", \"daemon off;\"\]\r"
+send "EOF\r"
+
+expect "# "
+send "echo '=== CREATING SIMPLE ENV FILE ==='\r"
+
+expect "# "
+send "cat > .env << 'EOF'\r"
+send "DB_USER=pmcell_user\r"
+send "DB_PASSWORD=PmcellKingHost2025!\r"
+send "DB_NAME=pmcell_db\r"
+send "DB_HOST=db\r"
+send "SECRET_KEY=PmcellKingHost2025SuperSecureJwtSecretKeyWithSpecialChars123!\r"
+send "JWT_SECRET_KEY=PmcellKingHost2025SuperSecureJwtSecretKeyWithSpecialChars123!\r"
+send "ADMIN_PASSWORD=thmpv321\r"
+send "ENVIRONMENT=production\r"
+send "DEBUG=False\r"
+send "FRONTEND_URL=http://177.153.64.105\r"
+send "BACKEND_URL=http://177.153.64.105:8000\r"
+send "DATABASE_URL=postgresql+asyncpg://pmcell_user:PmcellKingHost2025!@db:5432/pmcell_db\r"
+send "LOG_LEVEL=INFO\r"
+send "LOG_FORMAT=json\r"
+send "ALLOWED_ORIGINS=http://177.153.64.105\r"
+send "EOF\r"
+
+expect "# "
+send "echo '=== STARTING WITH FIXES ==='\r"
+
+expect "# "
+send "docker-compose -f docker-compose.prod.yml up -d --build\r"
+
+expect "# "
+send "exit\r"
+
+expect eof

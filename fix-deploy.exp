@@ -1,0 +1,46 @@
+#!/usr/bin/expect -f
+
+set timeout 300
+spawn ssh root@177.153.64.105
+
+expect {
+    "password:" {
+        send "@Hexenwith556023\r"
+    }
+    "Are you sure you want to continue connecting" {
+        send "yes\r"
+        exp_continue
+    }
+}
+
+expect "# "
+send "cd /opt/pmcell-separacao\r"
+
+expect "# "
+send "rm -f /etc/apt/sources.list.d/docker.list\r"
+
+expect "# "
+send "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -\r"
+
+expect "# "
+send "echo \"deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable\" > /etc/apt/sources.list.d/docker.list\r"
+
+expect "# "
+send "apt update\r"
+
+expect "# "
+send "apt install -y docker-ce docker-ce-cli containerd.io\r"
+
+expect "# "
+send "curl -L \"https://github.com/docker/compose/releases/download/v2.24.0/docker-compose-Linux-x86_64\" -o /usr/local/bin/docker-compose\r"
+
+expect "# "
+send "chmod +x /usr/local/bin/docker-compose\r"
+
+expect "# "
+send "docker --version && docker-compose --version\r"
+
+expect "# "
+send "exit\r"
+
+expect eof

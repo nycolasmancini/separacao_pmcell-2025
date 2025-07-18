@@ -1,0 +1,65 @@
+#!/usr/bin/expect -f
+
+set timeout 180
+spawn ssh root@177.153.64.105
+
+expect {
+    "password:" {
+        send "@Hexenwith556023\r"
+    }
+    "Are you sure you want to continue connecting" {
+        send "yes\r"
+        exp_continue
+    }
+}
+
+expect "# "
+send "cd /opt\r"
+
+expect "# "
+send "echo '=== PARANDO CONTAINERS ==='\r"
+
+expect "# "
+send "docker-compose -f docker-compose.prod.yml down\r"
+
+expect "# "
+send "echo '=== CRIANDO NOVA CONFIGURAÇÃO ==='\r"
+
+expect "# "
+send "cat > .env.prod << 'EOF'\r"
+send "DB_USER=pmcell_user\r"
+send "DB_PASSWORD=PmcellKingHost2025SecurePassword!\r"
+send "DB_NAME=pmcell_db\r"
+send "DB_HOST=db\r"
+send "JWT_SECRET_KEY=PmcellKingHost2025SuperSecureJwtSecretKeyWithSpecialChars!@#\$%\r"
+send "ADMIN_PASSWORD=thmpv321\r"
+send "ENVIRONMENT=production\r"
+send "DEBUG=False\r"
+send "FRONTEND_URL=http://177.153.64.105\r"
+send "BACKEND_URL=http://177.153.64.105:8000\r"
+send "DATABASE_URL=postgresql+asyncpg://pmcell_user:PmcellKingHost2025SecurePassword!@db:5432/pmcell_db\r"
+send "LOG_LEVEL=INFO\r"
+send "LOG_FORMAT=json\r"
+send "ALLOWED_ORIGINS=http://177.153.64.105\r"
+send "SECRET_KEY=PmcellKingHost2025SuperSecureJwtSecretKeyWithSpecialChars!@#\$%\r"
+send "EOF\r"
+
+expect "# "
+send "echo '=== RESTARTING WITH NEW CONFIG ==='\r"
+
+expect "# "
+send "docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d --build\r"
+
+expect "# "
+send "echo '=== WAITING FOR CONTAINERS ==='\r"
+
+expect "# "
+send "sleep 60\r"
+
+expect "# "
+send "docker ps\r"
+
+expect "# "
+send "exit\r"
+
+expect eof

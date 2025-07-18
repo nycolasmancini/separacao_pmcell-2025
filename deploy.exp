@@ -1,0 +1,40 @@
+#!/usr/bin/expect -f
+
+set timeout 1800
+spawn ssh root@177.153.64.105
+
+expect {
+    "password:" {
+        send "@Hexenwith556023\r"
+    }
+    "Are you sure you want to continue connecting" {
+        send "yes\r"
+        exp_continue
+    }
+}
+
+expect "# "
+send "cd /opt\r"
+
+expect "# "
+send "tar -xzf pmcell-deploy.tar.gz\r"
+
+expect "# "
+send "cd pmcell-separacao\r"
+
+expect "# "
+send "chmod +x deploy-kinghost.sh\r"
+
+expect "# "
+send "./deploy-kinghost.sh\r"
+
+expect {
+    "🎉 Deploy finalizado com sucesso!" {
+        send "exit\r"
+    }
+    timeout {
+        send "exit\r"
+    }
+}
+
+expect eof

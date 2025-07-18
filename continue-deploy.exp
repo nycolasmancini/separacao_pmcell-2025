@@ -1,0 +1,75 @@
+#!/usr/bin/expect -f
+
+set timeout 600
+spawn scp pmcell-deploy.tar.gz root@177.153.64.105:/opt/
+
+expect {
+    "password:" {
+        send "@Hexenwith556023\r"
+        exp_continue
+    }
+    "Are you sure you want to continue connecting" {
+        send "yes\r"
+        exp_continue
+    }
+    eof
+}
+
+spawn ssh root@177.153.64.105
+
+expect {
+    "password:" {
+        send "@Hexenwith556023\r"
+    }
+    "Are you sure you want to continue connecting" {
+        send "yes\r"
+        exp_continue
+    }
+}
+
+expect "# "
+send "cd /opt\r"
+
+expect "# "
+send "tar -xzf pmcell-deploy.tar.gz\r"
+
+expect "# "
+send "cd pmcell-separacao\r"
+
+expect "# "
+send "ls -la\r"
+
+expect "# "
+send "cat > .env.prod << 'EOF'\r"
+send "DB_USER=pmcell_user\r"
+send "DB_PASSWORD=PmcellKingHost2025!\r"
+send "DB_NAME=pmcell_db\r"
+send "DB_HOST=db\r"
+send "JWT_SECRET_KEY=pmcell-kinghost-jwt-secret-2025-production\r"
+send "ADMIN_PASSWORD=thmpv321\r"
+send "ENVIRONMENT=production\r"
+send "DEBUG=False\r"
+send "FRONTEND_URL=http://177.153.64.105\r"
+send "BACKEND_URL=http://177.153.64.105:8000\r"
+send "DATABASE_URL=postgresql+asyncpg://pmcell_user:PmcellKingHost2025!@db:5432/pmcell_db\r"
+send "LOG_LEVEL=INFO\r"
+send "LOG_FORMAT=json\r"
+send "ALLOWED_ORIGINS=http://177.153.64.105\r"
+send "EOF\r"
+
+expect "# "
+send "chmod 600 .env.prod\r"
+
+expect "# "
+send "docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d --build\r"
+
+expect "# "
+send "sleep 30\r"
+
+expect "# "
+send "docker-compose -f docker-compose.prod.yml ps\r"
+
+expect "# "
+send "exit\r"
+
+expect eof

@@ -1,0 +1,83 @@
+#!/usr/bin/expect -f
+
+set timeout 600
+spawn ssh root@177.153.64.105
+
+expect {
+    "password:" {
+        send "@Hexenwith556023\r"
+    }
+    "Are you sure you want to continue connecting" {
+        send "yes\r"
+        exp_continue
+    }
+}
+
+expect "# "
+send "cd /opt\r"
+
+expect "# "
+send "echo '=== STOPPING CURRENT CONTAINERS ==='\r"
+
+expect "# "
+send "docker-compose -f docker-compose.prod.yml down\r"
+
+expect "# "
+send "echo '=== UPDATING ENV WITH SUPER STRONG JWT ==='\r"
+
+expect "# "
+send "cat > .env << 'EOF'\r"
+send "DB_USER=pmcell_user\r"
+send "DB_PASSWORD=PmcellKingHost2025!\r"
+send "DB_NAME=pmcell_db\r"
+send "DB_HOST=db\r"
+send "SECRET_KEY=xxY5oCpS,Q21cat@p?7E=kt<p<9m8.N06XW-?55(X7\[MSmu9-Rq6j!t^JSZ*wNi}\r"
+send "JWT_SECRET_KEY=xxY5oCpS,Q21cat@p?7E=kt<p<9m8.N06XW-?55(X7\[MSmu9-Rq6j!t^JSZ*wNi}\r"
+send "ADMIN_PASSWORD=thmpv321\r"
+send "ENVIRONMENT=production\r"
+send "DEBUG=False\r"
+send "FRONTEND_URL=http://177.153.64.105\r"
+send "BACKEND_URL=http://177.153.64.105:8000\r"
+send "DATABASE_URL=postgresql+asyncpg://pmcell_user:PmcellKingHost2025!@db:5432/pmcell_db\r"
+send "LOG_LEVEL=INFO\r"
+send "LOG_FORMAT=json\r"
+send "ALLOWED_ORIGINS=http://177.153.64.105\r"
+send "EOF\r"
+
+expect "# "
+send "echo '=== REBUILDING WITH ALL FIXES ==='\r"
+
+expect "# "
+send "docker-compose -f docker-compose.prod.yml up -d --build\r"
+
+expect "# "
+send "echo '=== WAITING FOR BUILD TO COMPLETE ==='\r"
+
+expect "# "
+send "sleep 180\r"
+
+expect "# "
+send "docker ps\r"
+
+expect "# "
+send "echo '=== TESTING BACKEND HEALTH ==='\r"
+
+expect "# "
+send "curl -f http://localhost:8000/health && echo 'Backend OK' || echo 'Backend FAILED'\r"
+
+expect "# "
+send "echo '=== TESTING FRONTEND ==='\r"
+
+expect "# "
+send "curl -f http://localhost && echo 'Frontend OK' || echo 'Frontend FAILED'\r"
+
+expect "# "
+send "echo '=== CHECKING LOGS ==='\r"
+
+expect "# "
+send "docker-compose -f docker-compose.prod.yml logs --tail 10 backend\r"
+
+expect "# "
+send "exit\r"
+
+expect eof

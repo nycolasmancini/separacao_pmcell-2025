@@ -1,0 +1,40 @@
+#!/usr/bin/expect -f
+
+set timeout 60
+spawn ssh root@177.153.64.105
+
+expect {
+    "password:" {
+        send "@Hexenwith556023\r"
+    }
+    "Are you sure you want to continue connecting" {
+        send "yes\r"
+        exp_continue
+    }
+}
+
+expect "# "
+send "cd /opt\r"
+
+expect "# "
+send "docker ps\r"
+
+expect "# "
+send "docker-compose -f docker-compose.prod.yml ps\r"
+
+expect "# "
+send "curl -f http://localhost:8000/health || echo 'Backend not responding'\r"
+
+expect "# "
+send "curl -f http://localhost || echo 'Frontend not responding'\r"
+
+expect "# "
+send "netstat -tulpn | grep :80\r"
+
+expect "# "
+send "netstat -tulpn | grep :8000\r"
+
+expect "# "
+send "exit\r"
+
+expect eof

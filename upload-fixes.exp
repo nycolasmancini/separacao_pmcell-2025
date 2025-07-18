@@ -1,0 +1,30 @@
+#!/usr/bin/expect -f
+
+set timeout 120
+spawn scp frontend/package.json root@177.153.64.105:/opt/frontend/
+
+expect {
+    "password:" {
+        send "@Hexenwith556023\r"
+        exp_continue
+    }
+    "Are you sure you want to continue connecting" {
+        send "yes\r"
+        exp_continue
+    }
+    eof
+}
+
+spawn scp frontend/src/index.css root@177.153.64.105:/opt/frontend/src/
+
+expect {
+    "password:" {
+        send "@Hexenwith556023\r"
+        exp_continue
+    }
+    "Are you sure you want to continue connecting" {
+        send "yes\r"
+        exp_continue
+    }
+    eof
+}

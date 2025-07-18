@@ -1,0 +1,60 @@
+#!/usr/bin/expect -f
+
+set timeout 600
+spawn scp simple-vite-config.js root@177.153.64.105:/opt/frontend/vite.config.js
+
+expect {
+    "password:" {
+        send "@Hexenwith556023\r"
+        exp_continue
+    }
+    "Are you sure you want to continue connecting" {
+        send "yes\r"
+        exp_continue
+    }
+    eof
+}
+
+spawn ssh root@177.153.64.105
+
+expect {
+    "password:" {
+        send "@Hexenwith556023\r"
+    }
+    "Are you sure you want to continue connecting" {
+        send "yes\r"
+        exp_continue
+    }
+}
+
+expect "# "
+send "cd /opt\r"
+
+expect "# "
+send "echo '=== REBUILDING WITH SIMPLIFIED CONFIG ==='\r"
+
+expect "# "
+send "docker-compose -f docker-compose.prod.yml down\r"
+
+expect "# "
+send "docker-compose -f docker-compose.prod.yml up -d --build\r"
+
+expect "# "
+send "echo '=== WAITING FOR BUILD ==='\r"
+
+expect "# "
+send "sleep 300\r"
+
+expect "# "
+send "docker ps\r"
+
+expect "# "
+send "curl -f http://localhost:8000/health && echo 'Backend SUCCESS' || echo 'Backend FAILED'\r"
+
+expect "# "
+send "curl -f http://localhost && echo 'Frontend SUCCESS' || echo 'Frontend FAILED'\r"
+
+expect "# "
+send "exit\r"
+
+expect eof

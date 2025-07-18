@@ -1,0 +1,78 @@
+#!/usr/bin/expect -f
+
+set timeout 600
+spawn ssh root@177.153.64.105
+
+expect {
+    "password:" {
+        send "@Hexenwith556023\r"
+    }
+    "Are you sure you want to continue connecting" {
+        send "yes\r"
+        exp_continue
+    }
+}
+
+expect "# "
+send "cd /opt\r"
+
+expect "# "
+send "echo '=== FIXING DOCKERFILE SYNTAX ==='\r"
+
+expect "# "
+send "cat > frontend/Dockerfile << 'EOF'\r"
+send "FROM node:18-alpine as builder\r"
+send "WORKDIR /app\r"
+send "COPY package*.json ./\r"
+send "RUN npm ci\r"
+send "COPY . .\r"
+send "RUN npm run build\r"
+send "\r"
+send "FROM nginx:alpine as production\r"
+send "COPY nginx.conf /etc/nginx/nginx.conf\r"
+send "COPY --from=builder /app/dist /usr/share/nginx/html\r"
+send "EXPOSE 80\r"
+send "HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD wget --quiet --tries=1 --spider http://localhost/ || exit 1\r"
+send "CMD \[\"nginx\", \"-g\", \"daemon off;\"\]\r"
+send "EOF\r"
+
+expect "# "
+send "echo '=== STARTING APPLICATION ==='\r"
+
+expect "# "
+send "docker-compose -f docker-compose.prod.yml up -d --build\r"
+
+expect "# "
+send "echo '=== WAITING FOR CONTAINERS ==='\r"
+
+expect "# "
+send "sleep 120\r"
+
+expect "# "
+send "docker ps\r"
+
+expect "# "
+send "echo '=== TESTING BACKEND ==='\r"
+
+expect "# "
+send "curl -f http://localhost:8000/health && echo 'Backend OK' || echo 'Backend FAILED'\r"
+
+expect "# "
+send "echo '=== TESTING FRONTEND ==='\r"
+
+expect "# "
+send "curl -f http://localhost && echo 'Frontend OK' || echo 'Frontend FAILED'\r"
+
+expect "# "
+send "echo '=== CHECKING LOGS ==='\r"
+
+expect "# "
+send "docker-compose -f docker-compose.prod.yml logs --tail 5 backend\r"
+
+expect "# "
+send "docker-compose -f docker-compose.prod.yml logs --tail 5 frontend\r"
+
+expect "# "
+send "exit\r"
+
+expect eof
