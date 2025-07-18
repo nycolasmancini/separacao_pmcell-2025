@@ -25,10 +25,14 @@ def get_engine():
     if _engine is None:
         # Converte DATABASE_URL para asyncpg se necessário
         database_url = settings.DATABASE_URL
+        print(f"Original DATABASE_URL: {database_url}")
+        
         if database_url.startswith("postgresql://"):
             database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            print(f"Converted to asyncpg: {database_url}")
         elif database_url.startswith("postgres://"):
             database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+            print(f"Converted postgres to asyncpg: {database_url}")
             
         _engine = create_async_engine(
             database_url,

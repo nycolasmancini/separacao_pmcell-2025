@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: Optional[str] = None
     
     # Database
-    DATABASE_URL: str = "sqlite+aiosqlite:///./pmcell.db"
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./pmcell.db")
     MAX_CONNECTIONS: int = 20
     CONNECTION_TIMEOUT: int = 30
     
