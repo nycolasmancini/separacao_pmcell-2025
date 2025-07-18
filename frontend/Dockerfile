@@ -34,7 +34,12 @@ RUN chown -R pmcell:pmcell /var/cache/nginx && \
 RUN mkdir -p /var/run/nginx && \
     chown -R pmcell:pmcell /var/run/nginx
 
-# Switch to non-root user
+# Create executable script
+RUN echo '#!/bin/sh' > /start.sh && \
+    echo 'nginx -g "daemon off;"' >> /start.sh && \
+    chmod +x /start.sh
+
+# Switch to non-root user  
 USER pmcell
 
 # Expose port 80
@@ -45,4 +50,4 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
   CMD wget --quiet --tries=1 --spider http://localhost/ || exit 1
 
 # Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["/start.sh"]
