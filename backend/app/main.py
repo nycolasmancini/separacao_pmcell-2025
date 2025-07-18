@@ -137,7 +137,8 @@ async def startup_event():
     # Log SECRET_KEY info for debugging (first 10 chars only)
     logger.info(f"SECRET_KEY configured: {settings.SECRET_KEY[:20]}...")
     
-    await init_db()
+    # Comentado temporariamente para evitar falha de conexão no startup
+    # await init_db()
     logger.info("Application startup completed")
 
 
