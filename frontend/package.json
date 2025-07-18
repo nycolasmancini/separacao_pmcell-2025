@@ -10,10 +10,11 @@
     "build:prod": "vite build --mode production",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint . --ext js,jsx --fix",
-    "preview": "vite preview",
+    "preview": "vite preview --port ${PORT:-3000} --host",
     "test": "vitest",
     "test:coverage": "vitest --coverage",
-    "serve": "vite preview --port 3000"
+    "serve": "vite preview --port ${PORT:-3000} --host",
+    "start": "vite preview --port ${PORT:-3000} --host"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
