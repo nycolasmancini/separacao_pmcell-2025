@@ -21,26 +21,13 @@ COPY nginx.conf /etc/nginx/nginx.conf
 # Copy built application from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Create non-root user for security
-RUN addgroup -g 1001 -S pmcell && \
-    adduser -S pmcell -u 1001
-
-# Set ownership of nginx files
-RUN chown -R pmcell:pmcell /var/cache/nginx && \
-    chown -R pmcell:pmcell /var/log/nginx && \
-    chown -R pmcell:pmcell /etc/nginx/conf.d
-
 # Create nginx PID directory
-RUN mkdir -p /var/run/nginx && \
-    chown -R pmcell:pmcell /var/run/nginx
+RUN mkdir -p /var/run/nginx
 
 # Create executable script
 RUN echo '#!/bin/sh' > /start.sh && \
     echo 'nginx -g "daemon off;"' >> /start.sh && \
     chmod +x /start.sh
-
-# Switch to non-root user  
-USER pmcell
 
 # Expose port 80
 EXPOSE 80
