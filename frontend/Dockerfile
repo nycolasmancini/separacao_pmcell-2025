@@ -1,14 +1,11 @@
 # Build React app
-FROM node:18-alpine AS builder
+FROM node:18 AS builder
 WORKDIR /app
 COPY . .
-# Fix rollup issue by removing lock file
-RUN rm -rf node_modules package-lock.json && \
-    npm install && \
-    npm run build
+RUN npm ci && npm run build
 
 # Serve with simple http server
-FROM node:18-alpine
+FROM node:18-slim
 WORKDIR /app
 RUN npm install -g serve
 COPY --from=builder /app/dist .
