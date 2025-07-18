@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     REDIS_URL: Optional[str] = None
     CACHE_TTL: int = 3600  # 1 hour default
     
+    # Security
+    SKIP_SECURITY_VALIDATION: bool = False
+    
     model_config = {
         "env_file": ".env",
         "case_sensitive": True
