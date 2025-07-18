@@ -4,17 +4,13 @@ FROM node:18-alpine as builder
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-
-# Install dependencies
-RUN npm install
-
-# Copy source code
+# Copy all source code first
 COPY . .
 
-# Build the application
-RUN npm run build
+# Clean install with build fix
+RUN rm -rf node_modules package-lock.json && \
+    npm install && \
+    npm run build
 
 # Production stage with Nginx
 FROM nginx:alpine as production
