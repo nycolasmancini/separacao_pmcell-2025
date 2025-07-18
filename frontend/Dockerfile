@@ -15,26 +15,22 @@ RUN rm -rf node_modules package-lock.json && \
 # Production stage with Nginx
 FROM nginx:alpine as production
 
-# Copy custom nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
-
 # Copy built application from builder stage
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Create nginx PID directory
-RUN mkdir -p /var/run/nginx
-
-# Create executable script
-RUN echo '#!/bin/sh' > /start.sh && \
-    echo 'nginx -g "daemon off;"' >> /start.sh && \
-    chmod +x /start.sh
+# Use default nginx configuration and override specific settings
+RUN echo 'server {' > /etc/nginx/conf.d/default.conf && \
+    echo '    listen 80;' >> /etc/nginx/conf.d/default.conf && \
+    echo '    server_name _;' >> /etc/nginx/conf.d/default.conf && \
+    echo '    root /usr/share/nginx/html;' >> /etc/nginx/conf.d/default.conf && \
+    echo '    index index.html;' >> /etc/nginx/conf.d/default.conf && \
+    echo '    location / {' >> /etc/nginx/conf.d/default.conf && \
+    echo '        try_files $uri $uri/ /index.html;' >> /etc/nginx/conf.d/default.conf && \
+    echo '    }' >> /etc/nginx/conf.d/default.conf && \
+    echo '}' >> /etc/nginx/conf.d/default.conf
 
 # Expose port 80
 EXPOSE 80
 
-# Health check disabled temporarily
-# HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-#   CMD wget --quiet --tries=1 --spider http://localhost/ || exit 1
-
-# Start nginx
-CMD ["/start.sh"]
+# Start nginx normally
+CMD ["nginx", "-g", "daemon off;"]
