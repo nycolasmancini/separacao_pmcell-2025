@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: Optional[str] = None
     
     # Database
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./pmcell.db")
+    DATABASE_URL: str = "sqlite+aiosqlite:///./pmcell.db"
     MAX_CONNECTIONS: int = 20
     CONNECTION_TIMEOUT: int = 30
     
@@ -67,7 +67,16 @@ class Settings(BaseSettings):
 
 @lru_cache()
 def get_settings() -> Settings:
-    return Settings()
+    # Debug environment variables
+    print("=== ENVIRONMENT VARIABLES DEBUG ===")
+    print(f"DATABASE_URL from env: {os.getenv('DATABASE_URL', 'NOT SET')}")
+    print(f"ENVIRONMENT from env: {os.getenv('ENVIRONMENT', 'NOT SET')}")
+    print(f"PORT from env: {os.getenv('PORT', 'NOT SET')}")
+    print("===================================")
+    
+    settings = Settings()
+    print(f"Final DATABASE_URL: {settings.DATABASE_URL}")
+    return settings
 
 
 settings = get_settings()
