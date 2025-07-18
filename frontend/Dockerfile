@@ -3,17 +3,13 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-
-# Install ALL dependencies (including devDependencies for build)
-RUN npm ci
-
-# Copy source code
+# Copy all source code first
 COPY . .
 
-# Build the application
-RUN npm run build
+# Fix npm rollup issue by removing and reinstalling
+RUN rm -rf node_modules package-lock.json && \
+    npm install && \
+    npm run build
 
 # Production stage - use nginx
 FROM nginx:alpine
