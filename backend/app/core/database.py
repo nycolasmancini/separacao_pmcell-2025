@@ -23,8 +23,15 @@ def get_engine():
     """Obtém ou cria o engine assíncrono."""
     global _engine
     if _engine is None:
+        # Converte DATABASE_URL para asyncpg se necessário
+        database_url = settings.DATABASE_URL
+        if database_url.startswith("postgresql://"):
+            database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        elif database_url.startswith("postgres://"):
+            database_url = database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+            
         _engine = create_async_engine(
-            settings.DATABASE_URL,
+            database_url,
             echo=settings.DEBUG,
             future=True,
         )
@@ -85,3 +92,7 @@ async def init_db() -> None:
     engine = get_engine()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+
+# Alias para compatibilidade
+get_db = get_async_session
