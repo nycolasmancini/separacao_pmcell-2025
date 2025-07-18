@@ -22,7 +22,7 @@ function App() {
   return (
     <ErrorBoundary>
       <ToastProvider>
-        <BrowserRouter>
+        <BrowserRouter basename="/separacao_pmcell-2025">
           <div className="min-h-screen bg-gray-50 safe-top safe-bottom">
             <Routes>
               <Route 
