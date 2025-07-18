@@ -2,7 +2,10 @@
 FROM node:18-alpine AS builder
 WORKDIR /app
 COPY . .
-RUN npm install && npm run build
+# Fix rollup issue by removing lock file
+RUN rm -rf node_modules package-lock.json && \
+    npm install && \
+    npm run build
 
 # Serve with simple http server
 FROM node:18-alpine
