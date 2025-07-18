@@ -23,8 +23,13 @@ def get_engine():
     """Obtém ou cria o engine assíncrono."""
     global _engine
     if _engine is None:
+        # Converter URL para async se necessário
+        database_url = settings.DATABASE_URL
+        if database_url.startswith("postgresql://"):
+            database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        
         _engine = create_async_engine(
-            settings.DATABASE_URL,
+            database_url,
             echo=settings.DEBUG,
             future=True,
         )
